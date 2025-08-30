@@ -3,51 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OSINT-инструмент</title>
+    <title>Продвинутый OSINT-поиск (v7)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            color: #1f2937;
-        }
-        .progress-bar {
-            height: 8px;
-            background-color: #e5e7eb;
-            border-radius: 9999px;
+            background-color: #0d121c; /* Very dark blue */
+            color: #e5e7eb;
+            transition: background-color 0.3s;
+            position: relative;
             overflow: hidden;
-            margin-top: 8px;
         }
-        .progress-bar-fill {
+
+        /* Matrix-style background animation */
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
             height: 100%;
-            background-color: #4f46e5;
-            transition: width 0.4s ease-in-out;
-            border-radius: 9999px;
+            z-index: -1;
         }
-        .social-link {
+
+        .matrix-column {
+            position: absolute;
+            width: 15px;
+            font-family: 'monospace';
+            font-size: 15px;
+            color: rgba(0, 204, 0, 0.1); /* Much less bright green */
+            text-shadow: 0 0 2px rgba(0, 255, 0, 0.1); /* Significantly reduced glow */
+            white-space: nowrap;
+            overflow: hidden;
+            animation: matrix-fall 5s linear infinite;
+        }
+
+        @keyframes matrix-fall {
+            from { transform: translateY(-100%); }
+            to { transform: translateY(100vh); }
+        }
+
+        .container-bg {
+            background-color: rgba(23, 23, 31, 0.8); /* Semi-transparent darker background for cards */
+            backdrop-filter: blur(10px); /* Add a slight blur effect */
+        }
+        
+        .source-link, .document-link {
             display: flex;
             align-items: center;
             padding: 8px 12px;
             border-radius: 12px;
-            background-color: #eef2ff;
-            color: #4f46e5;
+            background-color: #4b5563;
+            color: #93c5fd;
             transition: background-color 0.2s, transform 0.2s;
+            margin-bottom: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        .social-link:hover {
-            background-color: #e0e7ff;
+        .source-link:hover, .document-link:hover {
+            background-color: #6b7280;
             transform: translateY(-2px);
+        }
+        .document-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background-color: #4f46e5;
+            color: white;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            display: inline-block;
+        }
+        .status-active {
+            background-color: #10B981;
+        }
+        .status-inactive {
+            background-color: #EF4444;
+        }
+        .status-checking {
+            background-color: #F59E0B;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
-<body class="p-4 sm:p-8 flex items-center justify-center min-h-screen">
-
-<div class="bg-white p-6 sm:p-10 rounded-3xl shadow-2xl max-w-4xl w-full">
-    <h1 class="text-3xl sm:text-4xl font-bold mb-2 text-center text-gray-800">OSINT-инструмент</h1>
-    <p class="text-md sm:text-lg text-gray-600 mb-6 text-center">
-        Найди информацию о человеке или должности из открытых источников.
-    </p>
-
+<body class="p-4 flex items-center justify-center min-h-screen">
+<div class="matrix-bg" id="matrixBackground"></div>
+<div class="container-bg p-6 rounded-2xl shadow-xl w-full max-w-2xl z-10 relative overflow-y-auto" style="max-height: 90vh;">
     <div class="space-y-4">
         <div class="relative">
             <input type="text" id="queryInput" placeholder="Введите имя, должность или запрос..."
@@ -57,25 +116,21 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                 </svg>
-                <span class="hidden sm:inline">Поиск</span>
+                <span>Поиск</span>
             </button>
         </div>
         
-        <div id="loadingStatus" class="mt-4 text-center text-gray-500 font-semibold hidden">
+        <div id="loadingStatus" class="mt-4 text-center text-gray-400 font-semibold hidden">
             <div class="animate-spin inline-block w-8 h-8 border-4 border-t-4 border-indigo-200 rounded-full border-t-indigo-600"></div>
             <p class="mt-2">Выполняю поиск. Это может занять до 60 секунд...</p>
         </div>
 
         <div id="resultsContainer" class="mt-6 space-y-6"></div>
 
-        <div id="errorAlert" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative mt-4" role="alert">
+        <div id="errorAlert" class="hidden bg-red-800 bg-opacity-30 border border-red-700 text-red-300 px-4 py-3 rounded-xl relative mt-4" role="alert">
             <strong class="font-bold">Ошибка!</strong>
             <span class="block sm:inline" id="errorMessage">Произошла неизвестная ошибка.</span>
         </div>
-
-        <p class="text-xs text-gray-500 mt-8 text-center">
-            Этот инструмент использует общедоступные источники информации (OSINT). Результаты могут быть неполными из-за настроек приватности на веб-сайтах или отсутствия публичных данных. Проверка ссылок основана на анализе поисковых результатов Google, что может влиять на точность определения "активности" профиля.
-        </p>
     </div>
 </div>
 
@@ -87,12 +142,38 @@
         const resultsContainer = document.getElementById('resultsContainer');
         const errorAlert = document.getElementById('errorAlert');
         const errorMessage = document.getElementById('errorMessage');
+        const matrixBackground = document.getElementById('matrixBackground');
 
+        // Matrix background generation
+        const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
+        const numColumns = Math.floor(window.innerWidth / 15); // Adjust based on font size
+
+        for (let i = 0; i < numColumns; i++) {
+            const column = document.createElement('div');
+            column.classList.add('matrix-column');
+            column.style.left = `${i * 15}px`;
+            column.style.animationDelay = `${Math.random() * 5}s`;
+            column.style.animationDuration = `${5 + Math.random() * 10}s`;
+
+            let text = '';
+            for (let j = 0; j < 50; j++) {
+                text += characters.charAt(Math.floor(Math.random() * characters.length));
+                text += '<br>';
+            }
+            column.innerHTML = text;
+            matrixBackground.appendChild(column);
+        }
+
+        // API key placeholder
         const API_KEY = "AIzaSyA0k4McgtWGuWPSuM78TLZHSkJuKu7sdEk";
         const API_URL_GENERATE = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
         
+        // Cache for URL status to avoid repeated checks
+        const urlStatusCache = new Map();
+        
+        // Function to call the API with exponential backoff for retries
         async function callApiWithRetry(url, payload, retries = 0) {
-            const maxRetries = 5;
+            const maxRetries = 10;
             try {
                 const response = await fetch(url, {
                     method: 'POST',
@@ -101,21 +182,63 @@
                 });
 
                 if (response.status === 429 && retries < maxRetries) {
-                    const delay = (2 ** retries) * 1000;
-                    console.warn(`Слишком много запросов. Повторная попытка через ${delay / 1000} секунд...`);
+                    const delay = (2 ** retries) * 1000 + (Math.random() * 1000);
+                    console.warn(`Too many requests. Retrying in ${Math.ceil(delay / 1000)}s...`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                     return await callApiWithRetry(url, payload, retries + 1);
                 }
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(`API-вызов не удался с ошибкой: ${response.status} ${response.statusText}. Детали: ${errorText}`);
+                    throw new Error(`API call failed with status: ${response.status} ${response.statusText}. Details: ${errorText}`);
                 }
 
                 return await response.json();
             } catch (e) {
-                console.error("Ошибка API-вызова:", e);
+                console.error("API call error:", e);
                 return null;
+            }
+        }
+        
+        // Function to check URL availability (using no-cors and a proxy as a fallback)
+        async function checkUrlAvailability(url) {
+            if (!url || url === "null") return "invalid";
+            
+            if (urlStatusCache.has(url)) {
+                return urlStatusCache.get(url);
+            }
+            
+            try {
+                // Using HEAD request is faster and less resource-intensive
+                const response = await fetch(url, { 
+                    method: 'HEAD',
+                    mode: 'no-cors',
+                    cache: 'no-cache'
+                });
+                
+                urlStatusCache.set(url, 'active');
+                return 'active';
+            } catch (error) {
+                console.warn(`Failed to check URL: ${url}`, error);
+                
+                // Fallback to a CORS proxy to bypass CORS issues in the iframe
+                try {
+                    const proxyResponse = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, {
+                        method: 'HEAD'
+                    });
+                    
+                    if (proxyResponse.ok) {
+                        urlStatusCache.set(url, 'active');
+                        return 'active';
+                    } else {
+                        urlStatusCache.set(url, 'inactive');
+                        return 'inactive';
+                    }
+                } catch (proxyError) {
+                    console.warn(`Proxy check also failed: ${url}`, proxyError);
+                    urlStatusCache.set(url, 'unknown');
+                    return 'unknown';
+                }
             }
         }
         
@@ -124,38 +247,60 @@
             errorAlert.classList.add('hidden');
             loadingStatus.classList.remove('hidden');
 
-            console.log(`Запускаю поиск информации по запросу '${query}'...`);
+            console.log(`Starting search for '${query}'...`);
             
-            // Шаг 1: Получение отчета с помощью Google Search
+            // Expanded search queries with a focus on connections and history
             const searchDorks = [
-                `site:linkedin.com/in/ "${query}"`,
-                `site:facebook.com "${query}"`,
-                `site:twitter.com "${query}"`,
-                `site:github.com "${query}"`,
-                `site:vk.com "${query}"`,
-                `"${query}" social media`,
-                `${query} contact`,
-                `${query}`
+                `"${query}" (биография OR резюме OR "CV")`,
+                `"${query}" (должность OR организация OR "место работы")`,
+                `"${query}" "контакты"`,
+                `"${query}" (публикации OR исследования OR "научные работы")`,
+                `"${query}" "семья" OR "родители" OR "супруг(а)"`,
+                `"${query}" (ранее работал OR "предыдущее место работы")`,
+                `site:wikipedia.org "${query}"`,
+                `site:linkedin.com "${query}"`,
+                `filetype:pdf "${query}"`,
+                `site:*.gov "${query}"`,
+                `site:*.edu "${query}"`,
+                `site:scholar.google.com "${query}"`,
+                `"${query}" "обвинения" OR "скандалы" OR "судебные дела"`,
+                `"${query}" (награды OR "почетные звания")`,
+                `"${query}" "интервью" OR "выступления"`,
+                `"${query}" "проекты" OR "разработки"`
             ];
 
             const searchPrompt = `
                 Найди в интернете всю доступную информацию, относящуюся к запросу "${query}". 
-                Используй следующие поисковые запросы (Google Dorks) для получения более точных результатов:
+                Используй следующие поисковые запросы (Google Dorks) для получения более точных и релевантных результатов:
                 ${searchDorks.join('\n- ')}
 
-                Твоя задача — найти людей, которые соответствуют этому запросу, и собрать все данные, включая полные имена, должности, организации, ссылки на социальные сети, биографические сведения и другую важную информацию. **Помимо найденных ссылок, ты также должен сгенерировать возможные URL-адреса социальных сетей, используя имя человека (например, linkedin.com/in/имя-фамилия, twitter.com/имя-фамилия). Убедись, что все URL-адреса начинаются с "https://" или "http://".**
-                После поиска предоставь подробный, развернутый отчет со всеми найденными фактами и ссылками.
+                Особое внимание удели:
+                1. Профессиональной деятельности: **текущая и прошлые должности**, организации, проекты.
+                2. Образованию, публикациям и научным работам.
+                3. Биографическим данным и **семейным связям (супруг(а), родители, дети)**.
+                4. **Связям с другими известными людьми или организациями**.
+                5. Ссылкам на официальные источники, включая профили в LinkedIn, государственные сайты, университетские страницы, Википедию, официальные документы (PDF, DOC).
+                6. Информации о **судебных делах, обвинениях, скандалах**, а также о наградах и почетных званиях.
+                7. Важным **интервью, выступлениям и публичным заявлениям**.
+                
+                Твоя задача — найти людей, которые соответствуют этому запросу, и собрать все данные, включая полные имена, должности, организации, ссылки на официальные источники, документы и другую важную информацию. 
+                После поиска предоставь подробный, развернутый отчет со всеми найденными фактами и **обязательно** ссылками на первоисточники.
+                
+                Убедись, что предоставляешь только проверенную информацию из надежных источников.
             `;
             
             const searchPayload = {
                 contents: [{ parts: [{ text: searchPrompt }] }],
                 tools: [{ google_search: {} }],
+                generationConfig: {
+                    temperature: 0.1, 
+                },
                 systemInstruction: {
-                    parts: [{ text: "Ты - эксперт по поиску информации в открытых источниках (OSINT). Твоя задача - найти всю доступную информацию о людях, соответствующих запросу, и представить её в виде подробного отчета." }]
+                    parts: [{ text: "Ты - эксперт по поиску информации в открытых источниках (OSINT). Твоя задача - найти всю доступную информацию о людях, соответствующих запросу, и представить её в виде подробного отчета с акцентом на официальные источники и документы. Никогда не выдумывай информацию. Если данные не найдены, так и скажи." }]
                 }
             };
 
-            console.log("Выполняю комплексный поиск...")
+            console.log("Executing comprehensive search...");
             const searchResponse = await callApiWithRetry(API_URL_GENERATE, searchPayload);
 
             if (!searchResponse || !searchResponse.candidates || !searchResponse.candidates[0] || !searchResponse.candidates[0].content) {
@@ -166,9 +311,9 @@
             }
             
             const fullTextReport = searchResponse.candidates[0].content.parts[0].text;
-            console.log("Отчет получен. Перехожу к структурированию данных...");
+            console.log("Report received. Now structuring data...");
 
-            // Шаг 2: Структурирование данных в JSON из полученного отчета
+            // Step 2: Structure the data into JSON from the report
             const jsonPrompt = `
                 Из следующего отчета извлеки всю информацию о каждом человеке и представь её в формате JSON-массива. Каждый объект в массиве должен представлять одного человека.
                 Отчет:
@@ -179,10 +324,13 @@
                 - "known_aliases": массив с псевдонимами или другими вариантами имени.
                 - "job_title": должность.
                 - "organization": организация, где работает или работал человек.
-                - "social_media": массив объектов, где каждый объект содержит "platform" (платформа) и "url" (URL-адрес профиля).
+                - "previous_roles": массив строк с предыдущими должностями или местами работы.
+                - "connections": массив строк с именами связанных людей (члены семьи, коллеги) или организаций.
+                - "sources": массив объектов, где каждый объект содержит "type" (тип источника: документ, официальный сайт, публикация, Википедия и т.д.) и "url" (URL-адрес источника). Не включай источники с пустыми или null URL.
+                - "documents": массив объектов с найденными документами (PDF, Word), каждый объект содержит "title" (название документа) и "url" (URL-адрес документа). Не включай документы с пустыми или null URL.
                 - "summary": краткое описание, составленное на основе отчета.
                 - "additional_info": любая другая важная информация, которая не вписывается в предыдущие поля.
-
+            
                 Ответь только JSON-массивом.
             `;
 
@@ -199,12 +347,24 @@
                                 known_aliases: { type: "ARRAY", items: { type: "STRING" } },
                                 job_title: { type: "STRING", nullable: true },
                                 organization: { type: "STRING", nullable: true },
-                                social_media: {
+                                previous_roles: { type: "ARRAY", items: { type: "STRING" } },
+                                connections: { type: "ARRAY", items: { type: "STRING" } },
+                                sources: {
                                     type: "ARRAY",
                                     items: {
                                         type: "OBJECT",
                                         properties: {
-                                            platform: { type: "STRING" },
+                                            type: { type: "STRING" },
+                                            url: { type: "STRING" }
+                                        }
+                                    }
+                                },
+                                documents: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            title: { type: "STRING" },
                                             url: { type: "STRING" }
                                         }
                                     }
@@ -216,7 +376,7 @@
                     }
                 },
                 systemInstruction: {
-                    parts: [{ text: "Ты - эксперт по анализу и структурированию данных. Извлекай информацию из предоставленного текста и преобразуй её в JSON-формат." }]
+                    parts: [{ text: "Ты - эксперт по анализу и структурированию данных. Извлекай информацию из предоставленного текста и преобразуй её в JSON-формат. Убедись, что включил все найденные источники, особенно из Википедии и официальных ресурсов. НИКОГДА не включай источники или документы с null или пустыми URL-адресами." }]
                 }
             };
 
@@ -228,7 +388,7 @@
                     const result = JSON.parse(jsonString);
                     await displayResults(result);
                 } catch (e) {
-                    console.error("Ошибка при разборе JSON:", e);
+                    console.error("Error parsing JSON:", e);
                     errorMessage.textContent = "Не удалось обработать ответ от AI. Пожалуйста, попробуйте еще раз.";
                     errorAlert.classList.remove('hidden');
                     loadingStatus.classList.add('hidden');
@@ -240,15 +400,16 @@
             }
         }
         
+        // Renders the search results dynamically
         async function displayResults(results) {
             loadingStatus.classList.add('hidden');
             resultsContainer.innerHTML = '';
             
-            if (results.length === 0 || (results.length === 1 && results[0].status)) {
+            if (results.length === 0) {
                 resultsContainer.innerHTML = `
-                    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-xl shadow-lg" role="alert">
+                    <div class="bg-yellow-800 bg-opacity-30 border-l-4 border-yellow-700 text-yellow-300 p-4 rounded-xl shadow-lg" role="alert">
                         <p class="font-bold">Информация не найдена</p>
-                        <p>${results.length === 1 && results[0].status ? results[0].status : "Поиск не дал результатов по вашему запросу."}</p>
+                        <p>Поиск не дал результатов по вашему запросу.</p>
                     </div>
                 `;
                 return;
@@ -256,76 +417,118 @@
 
             for (const person of results) {
                 const personCard = document.createElement('div');
-                personCard.className = 'bg-gray-100 p-6 rounded-2xl shadow-lg';
-                
-                let socialMediaHtml = '';
-                if (person.social_media && person.social_media.length > 0) {
-                    socialMediaHtml = `
-                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-800">Социальные сети:</h3>
-                        <ul class="space-y-2">
-                            ${person.social_media.map((sm, index) => `
-                                <li class="flex items-center space-x-2">
-                                    <div id="status-${sm.platform}-${index}" class="w-4 h-4 rounded-full bg-gray-400 animate-pulse" title="Проверяю..."></div>
-                                    <a href="${sm.url}" target="_blank" class="text-indigo-600 hover:underline transition-colors duration-200 social-link">${sm.platform}</a>
-                                </li>
-                            `).join('')}
+                personCard.className = 'container-bg p-6 rounded-2xl shadow-lg fade-in';
+
+                let previousRolesHtml = '';
+                if (person.previous_roles && person.previous_roles.length > 0) {
+                    previousRolesHtml = `
+                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Предыдущие должности:</h3>
+                        <ul class="list-disc list-inside space-y-1 text-gray-400">
+                            ${person.previous_roles.map(role => `<li>${role}</li>`).join('')}
                         </ul>
                     `;
-                    // Запуск асинхронной проверки URL
-                    person.social_media.forEach((sm, index) => {
-                        checkUrlAndDisplayStatus(sm.url, sm.platform, index, person.name);
-                    });
+                }
+
+                let connectionsHtml = '';
+                if (person.connections && person.connections.length > 0) {
+                    connectionsHtml = `
+                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Связи:</h3>
+                        <ul class="list-disc list-inside space-y-1 text-gray-400">
+                            ${person.connections.map(connection => `<li>${connection}</li>`).join('')}
+                        </ul>
+                    `;
+                }
+                
+                let sourcesHtml = '';
+                if (person.sources && person.sources.length > 0) {
+                    const validSources = person.sources.filter(source => source.url && source.url !== "null");
+                    
+                    if (validSources.length > 0) {
+                        sourcesHtml = `
+                            <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Источники информации:</h3>
+                            <ul class="space-y-2">
+                                ${validSources.map((source, index) => `
+                                    <li class="flex items-center">
+                                        <span id="status-src-${person.name.replace(/\s/g, '-')}-${index}" class="status-indicator status-checking" title="Проверяю..."></span>
+                                        <a href="${source.url}" target="_blank" class="source-link w-full">
+                                            ${source.type ? `${source.type}: ` : ''}${source.url}
+                                        </a>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        `;
+                        
+                        validSources.forEach((source, index) => {
+                            checkAndUpdateUrlStatus(source.url, `status-src-${person.name.replace(/\s/g, '-')}-${index}`);
+                        });
+                    }
+                }
+
+                let documentsHtml = '';
+                if (person.documents && person.documents.length > 0) {
+                    const validDocuments = person.documents.filter(doc => doc.url && doc.url !== "null");
+                    
+                    if (validDocuments.length > 0) {
+                        documentsHtml = `
+                            <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Документы:</h3>
+                            <ul class="space-y-2">
+                                ${validDocuments.map((doc, index) => {
+                                    const fileExtension = doc.url.split('.').pop().toLowerCase();
+                                    
+                                    return `
+                                    <li class="flex items-center">
+                                        <span id="status-doc-${person.name.replace(/\s/g, '-')}-${index}" class="status-indicator status-checking" title="Проверяю..."></span>
+                                        <a href="${doc.url}" target="_blank" class="document-link w-full">
+                                            <span class="document-badge">${fileExtension}</span>
+                                            ${doc.title || doc.url}
+                                        </a>
+                                    </li>
+                                `}).join('')}
+                            </ul>
+                        `;
+                        
+                        validDocuments.forEach((doc, index) => {
+                            checkAndUpdateUrlStatus(doc.url, `status-doc-${person.name.replace(/\s/g, '-')}-${index}`);
+                        });
+                    }
                 }
 
                 personCard.innerHTML = `
-                    <h2 class="text-xl font-bold text-gray-800">${person.name || 'Имя не указано'}</h2>
-                    ${person.job_title ? `<p class="text-indigo-600 font-medium">${person.job_title}</p>` : ''}
-                    ${person.organization ? `<p class="text-gray-500">${person.organization}</p>` : ''}
-                    <p class="text-gray-700 mt-4">${person.summary || 'Краткая информация отсутствует.'}</p>
-                    ${socialMediaHtml}
-                    ${person.additional_info ? `<p class="text-gray-600 mt-4 text-sm">${person.additional_info}</p>` : ''}
+                    <h2 class="text-xl font-bold text-gray-100">${person.name || 'Имя не указано'}</h2>
+                    ${person.job_title ? `<p class="text-indigo-400 font-medium">${person.job_title}</p>` : ''}
+                    ${person.organization ? `<p class="text-gray-400">${person.organization}</p>` : ''}
+                    <p class="text-gray-300 mt-4">${person.summary || 'Краткая информация отсутствует.'}</p>
+                    ${previousRolesHtml}
+                    ${connectionsHtml}
+                    ${sourcesHtml}
+                    ${documentsHtml}
+                    ${person.additional_info ? `<p class="text-gray-400 mt-4 text-sm">${person.additional_info}</p>` : ''}
                 `;
                 resultsContainer.appendChild(personCard);
             }
         }
-
-        async function checkUrlAndDisplayStatus(url, platform, index, personName) {
-            const statusElement = document.getElementById(`status-${platform}-${index}`);
-            // Удаляем прогресс-бар, так как он не соответствует логике проверки
-            const contentCheckPrompt = `
-                На основе информации, доступной через поиск Google по URL-адресу ${url}, определи, является ли это активным профилем ${platform} для человека по имени "${personName}". 
-                Профиль считается активным, если в поисковых результатах по этому URL есть признаки, что страница содержит реальную информацию о человеке, а не просто сообщение об ошибке или заглушку.
-                Признаки активного профиля:
-                1. Упоминание имени человека, его должности или интересов.
-                2. Наличие других связанных с ним ссылок или публикаций.
-                3. Отсутствие явных сообщений типа "аккаунт не существует", "страница не найдена", "войдите для просмотра".
-                
-                Ответь только словом "active" или "inactive".
-            `;
-
-            const contentCheckPayload = {
-                contents: [{ parts: [{ text: contentCheckPrompt }] }],
-                tools: [{ google_search: {} }],
-                systemInstruction: {
-                    parts: [{ text: "Ты - эксперт по анализу поисковых сниппетов и определению активности профилей." }]
-                }
-            };
-
-            console.log(`Проверяю URL: ${url}`);
-            const contentCheckResponse = await callApiWithRetry(API_URL_GENERATE, contentCheckPayload);
+        
+        // Checks and updates the status of the URL indicator
+        async function checkAndUpdateUrlStatus(url, elementId) {
+            const statusElement = document.getElementById(elementId);
+            if (!statusElement) return;
             
-            if (contentCheckResponse && contentCheckResponse.candidates && contentCheckResponse.candidates[0] && contentCheckResponse.candidates[0].content) {
-                const status = contentCheckResponse.candidates[0].content.parts[0].text.trim().toLowerCase();
+            try {
+                const status = await checkUrlAvailability(url);
+                
+                statusElement.classList.remove('status-checking');
                 if (status === 'active') {
-                    statusElement.className = 'w-4 h-4 rounded-full bg-green-500';
-                    statusElement.title = 'Профиль активен';
+                    statusElement.classList.add('status-active');
+                    statusElement.title = 'Ссылка активна';
                 } else {
-                    statusElement.className = 'w-4 h-4 rounded-full bg-red-500';
-                    statusElement.title = 'Профиль не найден или неактивен';
+                    statusElement.classList.add('status-inactive');
+                    statusElement.title = 'Ссылка неактивна или не удалось проверить';
                 }
-            } else {
-                statusElement.className = 'w-4 h-4 rounded-full bg-red-500';
-                statusElement.title = 'Ошибка при проверке';
+            } catch (error) {
+                console.error('Error checking URL status:', error);
+                statusElement.classList.remove('status-checking');
+                statusElement.classList.add('status-inactive');
+                statusElement.title = 'Ошибка при проверке ссылки';
             }
         }
 
@@ -346,6 +549,5 @@
         });
     });
 </script>
-
 </body>
 </html>
