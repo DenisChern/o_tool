@@ -1,16 +1,11 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Стабильный OSINT-поиск (v11.2-FIXED)</title>
+    <title>Стабильный OSINT-поиск (v11.4-DARK-PDF)</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.3.0/docx.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
@@ -30,12 +25,49 @@
         .fade-in { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Стили для PDF экспорта */
-        .pdf-export { background-color: white !important; color: black !important; }
-        .pdf-export * { color: black !important; background-color: transparent !important; }
-        .pdf-export .container-bg { background-color: white !important; border: 1px solid #ddd; }
-        .pdf-export .source-link, 
-        .pdf-export .document-link { background-color: #f3f4f6 !important; color: #1f2937 !important; border: 1px solid #d1d5db; }
+        /* Стили для PDF экспорта в темной теме */
+        .pdf-dark-theme { 
+            background-color: #0d121c !important; 
+            color: #e5e7eb !important;
+            padding: 20px;
+        }
+        .pdf-dark-theme .container-bg { 
+            background-color: rgba(23, 23, 31, 0.95) !important; 
+            border: 1px solid #374151 !important;
+            margin-bottom: 20px;
+            padding: 20px;
+            border-radius: 12px;
+        }
+        .pdf-dark-theme .source-link,
+        .pdf-dark-theme .document-link {
+            background-color: #4b5563 !important;
+            color: #93c5fd !important;
+            border: 1px solid #6b7280 !important;
+        }
+        .pdf-dark-theme h2 {
+            color: #f3f4f6 !important;
+            font-size: 1.5rem !important;
+            font-weight: bold !important;
+            margin-bottom: 10px !important;
+        }
+        .pdf-dark-theme h3 {
+            color: #e5e7eb !important;
+            font-size: 1.25rem !important;
+            font-weight: 600 !important;
+            margin-top: 15px !important;
+            margin-bottom: 10px !important;
+        }
+        .pdf-dark-theme p {
+            color: #d1d5db !important;
+            line-height: 1.5 !important;
+        }
+        .pdf-dark-theme ul {
+            color: #d1d5db !important;
+        }
+        .pdf-dark-theme .document-badge {
+            background-color: #4f46e5 !important;
+            color: white !important;
+        }
     </style>
 </head>
 <body class="p-4 flex items-center justify-center min-h-screen">
@@ -44,7 +76,7 @@
     
     <div class="space-y-4">
         <div class="relative">
-            <input type="text" id="queryInput" placeholder="Введите ОДИН запрос..."
+            <input type="text" id="queryInput" placeholder="Введите запрос (имя, компания, организация)..."
                    class="w-full px-5 py-3 pr-16 text-gray-700 bg-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300">
             <button id="searchButton"
                     class="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-indigo-700 transition-all duration-300 flex items-center justify-center space-x-2">
@@ -55,10 +87,7 @@
 
         <div id="exportButtons" class="flex space-x-2 hidden">
             <button id="savePdfButton" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition-all duration-300">
-                ⬇️ PDF
-            </button>
-            <button id="saveWordButton" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl shadow-lg hover:bg-blue-700 transition-all duration-300">
-                ⬇️ Word
+                ⬇️ PDF (Темная тема)
             </button>
         </div>
 
@@ -76,7 +105,7 @@
 </div>
 
 <script>
-    // Глобальная переменная для хранения JSON-ответа для Word
+    // Глобальная переменная для хранения JSON-ответа
     let currentJsonResult = null;
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -91,7 +120,6 @@
         const matrixBackground = document.getElementById('matrixBackground');
         const exportButtons = document.getElementById('exportButtons');
         const savePdfButton = document.getElementById('savePdfButton');
-        const saveWordButton = document.getElementById('saveWordButton');
 
         // --- Генерация Матрицы ---
         const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -109,21 +137,18 @@
         }
 
         // --- API Настройки ---
-        
-        // 🚨🚨🚨 БРО, ВСТАВЬ СЮДА СВОЙ РАБОЧИЙ КЛЮЧ! 🚨🚨🚨
         const API_KEY = "AIzaSyAvjT2_Y4cdZzCPDASmuBN1Va2ht_n51AU"; 
         
-        //
-        // ✅✅✅ ПРАВИЛЬНАЯ ВЕРСИЯ 2.5 ✅✅✅
-        //
-        const API_URL_GENERATE = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
+        // Используем стабильную модель
+        const API_URL_GENERATE = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
         
         const urlStatusCache = new Map();
 
         // --- Стабильная функция API-вызова ---
         async function callApiWithRetry(url, payload, retries = 0) {
-            const maxRetries = 10; // 10 попыток
-            const timeout = 60000; // 60 сек таймаут
+            const maxRetries = 5;
+            const timeout = 45000;
+            
             try {
                 const controller = new AbortController();
                 const id = setTimeout(() => controller.abort(), timeout);
@@ -137,9 +162,8 @@
                 
                 clearTimeout(id);
 
-                // Обработка 429 (Лимит запросов)
                 if (response.status === 429 && retries < maxRetries) {
-                    const delay = (2 ** retries) * 1000 + Math.random() * 2000; // Экспоненциальная задержка
+                    const delay = (2 ** retries) * 1000 + Math.random() * 2000;
                     loadingText.textContent = `Лимит API (429). Жду ${Math.ceil(delay / 1000)}с...`;
                     await new Promise(resolve => setTimeout(resolve, delay));
                     return await callApiWithRetry(url, payload, retries + 1);
@@ -148,9 +172,9 @@
                 if (!response.ok) {
                     const errorText = await response.text();
                     if (response.status === 404) {
-                         throw new Error(`API Ошибка: 404. Модель не найдена. Проверь API_URL_GENERATE.`);
+                         throw new Error(`API Ошибка: 404. Модель не найдена.`);
                     }
-                    throw new Error(`API Ошибка: ${response.status}. Детали: ${errorText}`);
+                    throw new Error(`API Ошибка: ${response.status}`);
                 }
                 
                 return await response.json();
@@ -160,7 +184,7 @@
                     loadingText.textContent = 'Таймаут. Попытка №' + (retries + 1);
                 }
                 if (retries < maxRetries) {
-                    await new Promise(resolve => setTimeout(resolve, 5000)); // Ждем 5 сек
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                     return await callApiWithRetry(url, payload, retries + 1);
                 }
                 throw e;
@@ -188,9 +212,8 @@
             }
         }
 
-        // --- ОСНОВНАЯ ФУНКЦИЯ ПОИСКА (ПУЛЕНЕПРОБИВАЕМАЯ) ---
+        // --- ОСНОВНАЯ ФУНКЦИЯ ПОИСКА ---
         async function findPersonInfo(query) {
-            // 1. Сброс
             resultsContainer.innerHTML = '';
             currentJsonResult = null;
             errorAlert.classList.add('hidden');
@@ -201,32 +224,53 @@
             try {
                 // --- ФАЗА 1: Поиск (Google Search) ---
                 const searchDorks = [
-                    `"${query}" (биография OR резюме OR "CV")`,
-                    `"${query}" (должность OR организация OR "место работы")`,
-                    `"${query}" "семья" OR "родители" OR "супруг(а)"`,
+                    `"${query}" (биография OR резюме OR "CV" OR "профиль")`,
+                    `"${query}" (должность OR организация OR "место работы" OR компания)`,
+                    `"${query}" (публикации OR статьи OR "научные работы")`,
                     `site:wikipedia.org "${query}"`,
                     `site:linkedin.com "${query}"`,
                     `filetype:pdf "${query}"`,
-                    `"${query}" "обвинения" OR "скандалы" OR "судебные дела"`,
                 ];
+
                 const searchPrompt = `
-                    Найди в интернете всю доступную информацию, относящуюся к запросу "${query}".
-                    Используй следующие поисковые запросы (Google Dorks):
-                    ${searchDorks.join('\n- ')}
-                    Собери подробный, развернутый отчет со всеми найденными фактами и **обязательно** ссылками на первоисточники.
-                    Включи информацию о карьере, связях, биографии и любых публичных записях.
+                    Пожалуйста, найди публично доступную информацию о: "${query}".
+                    Собери информацию из открытых источников:
+                    - Профессиональная деятельность и карьера
+                    - Образование и квалификация  
+                    - Публикации и выступления
+                    - Участие в проектах и организациях
+                    - Основные достижения
+                    
+                    Предоставь развернутый отчет с проверяемыми фактами и ссылками на источники.
+                    Используй только информацию из официальных и публичных источников.
                 `;
+
                 const searchPayload = {
-                    contents: [{ parts: [{ text: searchPrompt }] }],
+                    contents: [{ 
+                        parts: [{ 
+                            text: searchPrompt 
+                        }] 
+                    }],
                     tools: [{ google_search: {} }],
-                    generationConfig: { temperature: 0.1 },
-                    systemInstruction: { parts: [{ text: "Ты - OSINT-эксперт. Твоя задача - найти всю информацию о запросе и представить её в виде подробного отчета с акцентом на официальные источники и документы." }] }
+                    generationConfig: { 
+                        temperature: 0.2,
+                        maxOutputTokens: 2048
+                    },
+                    safetySettings: [
+                        {
+                            category: "HARM_CATEGORY_HARASSMENT",
+                            threshold: "BLOCK_NONE"
+                        },
+                        {
+                            category: "HARM_CATEGORY_HATE_SPEECH", 
+                            threshold: "BLOCK_NONE"
+                        }
+                    ]
                 };
 
                 const searchResponse = await callApiWithRetry(API_URL_GENERATE, searchPayload);
                 let fullTextReport = '';
                 
-                // ПРОВЕРКА (ФАЗА 1):
                 if (searchResponse && 
                     searchResponse.candidates && 
                     searchResponse.candidates[0] &&
@@ -235,50 +279,51 @@
                     searchResponse.candidates[0].content.parts[0]) 
                 {
                     fullTextReport = searchResponse.candidates[0].content.parts[0].text;
+                    
+                    if (fullTextReport.length < 50 || fullTextReport.includes("I cannot")) {
+                        throw new Error("Недостаточно информации найдено. Попробуйте другой запрос.");
+                    }
                 } else {
                     if (searchResponse && searchResponse.candidates && searchResponse.candidates[0] && searchResponse.candidates[0].finishReason) {
-                         throw new Error(`Фаза 1: Поиск заблокирован (Reason: ${searchResponse.candidates[0].finishReason}).`);
+                         throw new Error(`Поиск ограничен: ${searchResponse.candidates[0].finishReason}. Попробуйте другой запрос.`);
                     }
-                    throw new Error("Не удалось получить ответ на Фазе 1 (Поиск). API вернул пустой или некорректный ответ.");
+                    throw new Error("Не удалось получить ответ от API поиска.");
                 }
 
                 // --- ФАЗА 2: Структурирование (JSON) ---
                 loadingText.textContent = 'Фаза 2: Структурирование данных...';
                 
                 const jsonPrompt = `
-                    Из следующего отчета извлеки всю информацию о каждом человеке и представь её в формате JSON-массива.
-                    Отчет: ${fullTextReport}
-                    JSON-массив должен содержать объекты с полями: "name", "job_title", "organization", "previous_roles", "connections", "sources" (массив {type, url}), "documents" (массив {title, url}), "summary", "additional_info".
-                    Ответь ТОЛЬКО JSON-массивом. Не включай источники или документы с 'null' URL.
+                    Проанализируй следующий отчет и представь информацию в структурированном JSON формате:
+                    
+                    "${fullTextReport}"
+                    
+                    Создай JSON массив с объектами, содержащими следующие поля:
+                    - name (строка)
+                    - job_title (строка, опционально) 
+                    - organization (строка, опционально)
+                    - previous_roles (массив строк, опционально)
+                    - connections (массив строк, опционально)
+                    - sources (массив объектов {type, url})
+                    - documents (массив объектов {title, url}, опционально)
+                    - summary (строка)
+                    - additional_info (строка, опционально)
+                    
+                    Важно: включай только источники с валидными URL.
+                    Отвечай только JSON массивом без дополнительного текста.
                 `;
+
                 const jsonPayload = {
                     contents: [{ parts: [{ text: jsonPrompt }] }],
                     generationConfig: {
-                        responseMimeType: "application/json",
-                        responseSchema: {
-                            type: "ARRAY",
-                            items: {
-                                type: "OBJECT",
-                                properties: {
-                                    name: { type: "STRING" },
-                                    job_title: { type: "STRING", nullable: true },
-                                    organization: { type: "STRING", nullable: true },
-                                    previous_roles: { type: "ARRAY", items: { type: "STRING" } },
-                                    connections: { type: "ARRAY", items: { type: "STRING" } },
-                                    sources: { type: "ARRAY", items: { type: "OBJECT", properties: { type: { type: "STRING" }, url: { type: "STRING" } } } },
-                                    documents: { type: "ARRAY", items: { type: "OBJECT", properties: { title: { type: "STRING" }, url: { type: "STRING" } } } },
-                                    summary: { type: "STRING" },
-                                    additional_info: { type: "STRING", nullable: true }
-                                }
-                            }
-                        }
-                    },
-                    systemInstruction: { parts: [{ text: "Ты - эксперт по структурированию данных. Преобразуй текст в JSON." }] }
+                        temperature: 0.1,
+                        maxOutputTokens: 2048,
+                        responseMimeType: "application/json"
+                    }
                 };
 
                 const jsonResponse = await callApiWithRetry(API_URL_GENERATE, jsonPayload);
 
-                // ПРОВЕРКА (ФАЗА 2):
                 if (jsonResponse && 
                     jsonResponse.candidates && 
                     jsonResponse.candidates[0] &&
@@ -287,22 +332,23 @@
                     jsonResponse.candidates[0].content.parts[0]) 
                 {
                     const jsonString = jsonResponse.candidates[0].content.parts[0].text;
-                    const result = JSON.parse(jsonString);
                     
-                    currentJsonResult = result; // Сохраняем для Word/PDF
-                    await displayResults(result); // Отображаем
-                    
-                    loadingStatus.classList.add('hidden');
-                    exportButtons.classList.remove('hidden'); // Показываем кнопки
-                } else {
-                    if (jsonResponse && jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].finishReason) {
-                         throw new Error(`Фаза 2: JSON заблокирован (Reason: ${jsonResponse.candidates[0].finishReason}).`);
+                    try {
+                        const result = JSON.parse(jsonString);
+                        currentJsonResult = result;
+                        await displayResults(result);
+                        
+                        loadingStatus.classList.add('hidden');
+                        exportButtons.classList.remove('hidden');
+                    } catch (parseError) {
+                        throw new Error("Ошибка обработки данных. Попробуйте еще раз.");
                     }
-                     throw new Error("Не удалось получить ответ на Фазе 2 (JSON). API вернул пустой или некорректный ответ.");
+                } else {
+                    throw new Error("Не удалось структурировать данные.");
                 }
             } catch (err) {
                 console.error("Полная ошибка:", err);
-                errorMessage.textContent = err.message; // Показываем РЕАЛЬНУЮ причину
+                errorMessage.textContent = err.message;
                 errorAlert.classList.remove('hidden');
                 loadingStatus.classList.add('hidden');
             }
@@ -311,8 +357,12 @@
         // --- Отображение результатов ---
         async function displayResults(results) {
             resultsContainer.innerHTML = '';
-            if (results.length === 0) {
-                resultsContainer.innerHTML = `<div class="bg-yellow-800 bg-opacity-30 p-4 rounded-xl"><p>Информация не найдена.</p></div>`;
+            if (!results || results.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="bg-yellow-800 bg-opacity-30 p-6 rounded-xl text-center">
+                        <p class="text-yellow-200">Информация не найдена или недостаточно данных.</p>
+                        <p class="text-yellow-300 text-sm mt-2">Попробуйте уточнить запрос или использовать другие ключевые слова.</p>
+                    </div>`;
                 return;
             }
 
@@ -322,39 +372,82 @@
                 
                 let previousRolesHtml = '';
                 if (person.previous_roles && person.previous_roles.length > 0) {
-                    previousRolesHtml = `<h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Предыдущие должности:</h3><ul class="list-disc list-inside space-y-1 text-gray-400">${person.previous_roles.map(role => `<li>${role}</li>`).join('')}</ul>`;
+                    previousRolesHtml = `
+                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Предыдущие должности:</h3>
+                        <ul class="list-disc list-inside space-y-1 text-gray-400">
+                            ${person.previous_roles.map(role => `<li>${role}</li>`).join('')}
+                        </ul>`;
                 }
+
                 let connectionsHtml = '';
                 if (person.connections && person.connections.length > 0) {
-                    connectionsHtml = `<h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Связи:</h3><ul class="list-disc list-inside space-y-1 text-gray-400">${person.connections.map(connection => `<li>${connection}</li>`).join('')}</ul>`;
+                    connectionsHtml = `
+                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Связи:</h3>
+                        <ul class="list-disc list-inside space-y-1 text-gray-400">
+                            ${person.connections.map(connection => `<li>${connection}</li>`).join('')}
+                        </ul>`;
                 }
+
                 let sourcesHtml = '';
                 if (person.sources && person.sources.length > 0) {
-                    sourcesHtml = `<h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Источники:</h3><ul class="space-y-2">${person.sources.map((source, index) => `
-                        <li class="flex items-center"><span id="status-src-${index}" class="status-indicator status-checking"></span><a href="${source.url}" target="_blank" class="source-link w-full">${source.type}: ${source.url}</a></li>`).join('')}</ul>`;
-                    person.sources.forEach((source, index) => checkAndUpdateUrlStatus(source.url, `status-src-${index}`));
+                    sourcesHtml = `
+                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Источники:</h3>
+                        <ul class="space-y-2">
+                            ${person.sources.map((source, index) => `
+                                <li class="flex items-center">
+                                    <span id="status-src-${index}" class="status-indicator status-checking"></span>
+                                    <a href="${source.url}" target="_blank" class="source-link w-full">
+                                        ${source.type}: ${source.url}
+                                    </a>
+                                </li>`).join('')}
+                        </ul>`;
                 }
+
                 let documentsHtml = '';
                 if (person.documents && person.documents.length > 0) {
-                    documentsHtml = `<h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Документы:</h3><ul class="space-y-2">${person.documents.map((doc, index) => {
-                        const fileExtension = doc.url.split('.').pop().toLowerCase();
-                        return `<li class="flex items-center"><span id="status-doc-${index}" class="status-indicator status-checking"></span><a href="${doc.url}" target="_blank" class="document-link w-full"><span class="document-badge">${fileExtension}</span>${doc.title || doc.url}</a></li>`;
-                    }).join('')}</ul>`;
-                    person.documents.forEach((doc, index) => checkAndUpdateUrlStatus(doc.url, `status-doc-${index}`));
+                    documentsHtml = `
+                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Документы:</h3>
+                        <ul class="space-y-2">
+                            ${person.documents.map((doc, index) => {
+                                const fileExtension = doc.url.split('.').pop().toLowerCase();
+                                return `
+                                <li class="flex items-center">
+                                    <span id="status-doc-${index}" class="status-indicator status-checking"></span>
+                                    <a href="${doc.url}" target="_blank" class="document-link w-full">
+                                        <span class="document-badge">${fileExtension}</span>
+                                        ${doc.title || doc.url}
+                                    </a>
+                                </li>`;
+                            }).join('')}
+                        </ul>`;
                 }
 
                 personCard.innerHTML = `
-                    <h2 class="text-xl font-bold text-gray-100">${person.name || 'Имя не указано'}</h2>
-                    ${person.job_title ? `<p class="text-indigo-400 font-medium">${person.job_title}</p>` : ''}
+                    <h2 class="text-xl font-bold text-gray-100">${person.name || 'Информация'}</h2>
+                    ${person.job_title ? `<p class="text-indigo-400 font-medium mt-2">${person.job_title}</p>` : ''}
                     ${person.organization ? `<p class="text-gray-400">${person.organization}</p>` : ''}
-                    <p class="text-gray-300 mt-4">${person.summary || 'Краткая информация отсутствует.'}</p>
+                    <div class="mt-4 p-4 bg-gray-800 bg-opacity-50 rounded-lg">
+                        <p class="text-gray-300">${person.summary || 'Описание отсутствует.'}</p>
+                    </div>
                     ${previousRolesHtml}
                     ${connectionsHtml}
                     ${sourcesHtml}
                     ${documentsHtml}
-                    ${person.additional_info ? `<p class="text-gray-400 mt-4 text-sm">${person.additional_info}</p>` : ''}
+                    ${person.additional_info ? `
+                        <div class="mt-4 p-3 bg-blue-900 bg-opacity-30 rounded-lg">
+                            <p class="text-blue-300 text-sm">${person.additional_info}</p>
+                        </div>` : ''}
                 `;
                 resultsContainer.appendChild(personCard);
+
+                if (person.sources) {
+                    person.sources.forEach((source, index) => 
+                        checkAndUpdateUrlStatus(source.url, `status-src-${index}`));
+                }
+                if (person.documents) {
+                    person.documents.forEach((doc, index) => 
+                        checkAndUpdateUrlStatus(doc.url, `status-doc-${index}`));
+                }
             }
         }
         
@@ -389,34 +482,73 @@
             }
         });
 
-        // --- КНОПКА PDF (ИСПРАВЛЕНО) ---
+        // --- КНОПКА PDF (ТЕМНАЯ ТЕМА) ---
         savePdfButton.addEventListener('click', function() {
             const element = document.getElementById('resultsContainer');
             const query = queryInput.value || 'report';
             
+            if (!element.innerHTML.trim()) {
+                alert("Нет данных для экспорта. Сначала выполните поиск.");
+                return;
+            }
+            
+            // Создаем клон для PDF
             const clone = element.cloneNode(true);
             
             // Удаляем индикаторы статуса
             clone.querySelectorAll('.status-indicator').forEach(el => el.remove());
             
-            // Добавляем класс для PDF экспорта с белым фоном и черным текстом
-            clone.classList.add('pdf-export');
+            // Добавляем класс для темной темы PDF
+            clone.classList.add('pdf-dark-theme');
             
-            // Применяем стили ко всем элементам внутри
+            // Применяем стили ко всем внутренним элементам
             const allElements = clone.querySelectorAll('*');
             allElements.forEach(el => {
-                el.classList.add('pdf-export');
+                el.classList.add('pdf-dark-theme');
             });
 
-            html2pdf().from(clone).set({
+            // Создаем контейнер для PDF с темным фоном
+            const pdfContainer = document.createElement('div');
+            pdfContainer.className = 'pdf-dark-theme';
+            pdfContainer.style.backgroundColor = '#0d121c';
+            pdfContainer.style.color = '#e5e7eb';
+            pdfContainer.style.padding = '20px';
+            pdfContainer.style.minHeight = '100vh';
+            
+            // Добавляем заголовок
+            const title = document.createElement('h1');
+            title.textContent = `OSINT Отчет: ${query}`;
+            title.style.color = '#f3f4f6';
+            title.style.fontSize = '24px';
+            title.style.fontWeight = 'bold';
+            title.style.marginBottom = '10px';
+            title.style.textAlign = 'center';
+            
+            const date = document.createElement('p');
+            date.textContent = `Сгенерировано: ${new Date().toLocaleString('ru-RU')}`;
+            date.style.color = '#9ca3af';
+            date.style.textAlign = 'center';
+            date.style.marginBottom = '30px';
+            
+            pdfContainer.appendChild(title);
+            pdfContainer.appendChild(date);
+            pdfContainer.appendChild(clone);
+
+            // Настройки для PDF
+            const options = {
                 margin: 10,
                 filename: `OSINT_Report_${query.replace(/ /g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { 
-                    scale: 2, 
-                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    backgroundColor: '#0d121c', // Темный фон
                     useCORS: true,
-                    logging: false
+                    logging: false,
+                    onclone: function(clonedDoc) {
+                        // Применяем темные стили к клонированному документу
+                        clonedDoc.body.style.backgroundColor = '#0d121c';
+                        clonedDoc.body.style.color = '#e5e7eb';
+                    }
                 },
                 jsPDF: { 
                     unit: 'mm', 
@@ -424,186 +556,11 @@
                     orientation: 'portrait',
                     compress: true
                 }
-            }).save();
+            };
+
+            // Генерируем PDF
+            html2pdf().set(options).from(pdfContainer).save();
         });
-
-        // --- КНОПКА WORD (ИСПРАВЛЕНО) ---
-        saveWordButton.addEventListener('click', function() {
-            if (!currentJsonResult) {
-                alert("Нет данных для сохранения. Сначала выполните поиск.");
-                return;
-            }
-            generateWord(currentJsonResult, queryInput.value);
-        });
-
-        // --- Генератор WORD (DOCX) - ИСПРАВЛЕНА ОШИБКА docx is not defined ---
-        function generateWord(results, query) {
-            try {
-                // Проверяем, что библиотека docx доступна
-                if (typeof docx === 'undefined') {
-                    alert('Библиотека docx не загружена. Пожалуйста, обновите страницу.');
-                    return;
-                }
-
-                // Используем глобальную переменную docx из CDN
-                const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
-                
-                let docChildren = [];
-
-                // Заголовок документа
-                docChildren.push(new Paragraph({
-                    children: [new TextRun({ text: `OSINT Отчет по запросу: "${query}"`, bold: true, size: 32 })],
-                    heading: HeadingLevel.HEADING_1,
-                    spacing: { after: 400 }
-                }));
-
-                // Добавляем дату генерации
-                docChildren.push(new Paragraph({
-                    children: [new TextRun({ text: `Сгенерировано: ${new Date().toLocaleString('ru-RU')}`, italics: true, size: 22 })],
-                    spacing: { after: 600 }
-                }));
-
-                results.forEach((person, index) => {
-                    // Заголовок персоны
-                    docChildren.push(new Paragraph({ 
-                        text: person.name || 'Имя не указано', 
-                        heading: HeadingLevel.HEADING_2,
-                        spacing: { before: 400, after: 200 }
-                    }));
-                    
-                    // Должность и организация
-                    if (person.job_title || person.organization) {
-                        let jobText = '';
-                        if (person.job_title) jobText += person.job_title;
-                        if (person.organization) jobText += (jobText ? ' в ' : '') + person.organization;
-                        
-                        docChildren.push(new Paragraph({
-                            children: [
-                                new TextRun({ text: "Должность: ", bold: true }),
-                                new TextRun({ text: jobText })
-                            ],
-                            spacing: { after: 200 }
-                        }));
-                    }
-                    
-                    // Краткая сводка
-                    docChildren.push(new Paragraph({
-                        children: [new TextRun({ text: "Краткая сводка:", bold: true, size: 24 })],
-                        heading: HeadingLevel.HEADING_3,
-                        spacing: { before: 300, after: 200 }
-                    }));
-                    docChildren.push(new Paragraph({
-                        text: person.summary || 'Нет данных.',
-                        spacing: { after: 300 }
-                    }));
-
-                    // Предыдущие должности
-                    if (person.previous_roles && person.previous_roles.length > 0) {
-                        docChildren.push(new Paragraph({
-                            children: [new TextRun({ text: "Предыдущие должности:", bold: true, size: 24 })],
-                            heading: HeadingLevel.HEADING_3,
-                            spacing: { before: 300, after: 200 }
-                        }));
-                        person.previous_roles.forEach(role => {
-                            docChildren.push(new Paragraph({
-                                text: `• ${role}`,
-                                bullet: { level: 0 },
-                                spacing: { after: 100 }
-                            }));
-                        });
-                    }
-
-                    // Связи
-                    if (person.connections && person.connections.length > 0) {
-                        docChildren.push(new Paragraph({
-                            children: [new TextRun({ text: "Связи:", bold: true, size: 24 })],
-                            heading: HeadingLevel.HEADING_3,
-                            spacing: { before: 300, after: 200 }
-                        }));
-                        person.connections.forEach(conn => {
-                            docChildren.push(new Paragraph({
-                                text: `• ${conn}`,
-                                bullet: { level: 0 },
-                                spacing: { after: 100 }
-                            }));
-                        });
-                    }
-
-                    // Источники
-                    if (person.sources && person.sources.length > 0) {
-                        docChildren.push(new Paragraph({
-                            children: [new TextRun({ text: "Источники:", bold: true, size: 24 })],
-                            heading: HeadingLevel.HEADING_3,
-                            spacing: { before: 300, after: 200 }
-                        }));
-                        person.sources.forEach(src => {
-                            docChildren.push(new Paragraph({
-                                text: `• ${src.type}: ${src.url}`,
-                                bullet: { level: 0 },
-                                spacing: { after: 100 }
-                            }));
-                        });
-                    }
-                    
-                    // Документы
-                    if (person.documents && person.documents.length > 0) {
-                        docChildren.push(new Paragraph({
-                            children: [new TextRun({ text: "Документы:", bold: true, size: 24 })],
-                            heading: HeadingLevel.HEADING_3,
-                            spacing: { before: 300, after: 200 }
-                        }));
-                        person.documents.forEach(doc => {
-                            docChildren.push(new Paragraph({
-                                text: `• ${doc.title || 'Документ'}: ${doc.url}`,
-                                bullet: { level: 0 },
-                                spacing: { after: 100 }
-                            }));
-                        });
-                    }
-
-                    // Дополнительная информация
-                    if (person.additional_info) {
-                        docChildren.push(new Paragraph({
-                            children: [new TextRun({ text: "Дополнительная информация:", bold: true, size: 24 })],
-                            heading: HeadingLevel.HEADING_3,
-                            spacing: { before: 300, after: 200 }
-                        }));
-                        docChildren.push(new Paragraph({
-                            text: person.additional_info,
-                            spacing: { after: 300 }
-                        }));
-                    }
-
-                    // Разделитель между персонами (кроме последней)
-                    if (index < results.length - 1) {
-                        docChildren.push(new Paragraph({
-                            children: [new TextRun({ text: "―".repeat(50), color: "AAAAAA" })],
-                            alignment: "center",
-                            spacing: { before: 400, after: 400 }
-                        }));
-                    }
-                });
-
-                const doc = new Document({
-                    sections: [{ 
-                        properties: {},
-                        children: docChildren 
-                    }]
-                });
-
-                // Сохранение документа
-                Packer.toBlob(doc).then(blob => {
-                    saveAs(blob, `OSINT_Report_${query.replace(/ /g, '_')}.docx`);
-                }).catch(error => {
-                    console.error('Ошибка при создании Word документа:', error);
-                    alert('Ошибка при создании Word документа: ' + error.message);
-                });
-
-            } catch (error) {
-                console.error('Ошибка в generateWord:', error);
-                alert('Ошибка генерации Word: ' + error.message);
-            }
-        }
     });
 </script>
 </body>
