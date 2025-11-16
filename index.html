@@ -197,13 +197,14 @@
                     ${searchDorks.join('\n- ')}
                     Собери подробный, развернутый отчет со всеми найденными фактами и **обязательно** ссылками на первоисточники.
                     Включи информацию о карьере, связях, биографии и любых публичных записях.
+                    ВЕСЬ ОТЧЕТ ДОЛЖЕН БЫТЬ НА РУССКОМ ЯЗЫКЕ!
                 `;
 
                 const searchPayload = {
                     contents: [{ parts: [{ text: searchPrompt }] }],
                     tools: [{ google_search: {} }],
                     generationConfig: { temperature: 0.1 },
-                    systemInstruction: { parts: [{ text: "Ты - OSINT-эксперт. Твоя задача - найти всю информацию о запросе и представить её в виде подробного отчета с акцентом на официальные источники и документы." }] }
+                    systemInstruction: { parts: [{ text: "Ты - OSINT-эксперт. Твоя задача - найти всю информацию о запросе и представить её в виде подробного отчета с акцентом на официальные источники и документы. ВСЕГДА ОТВЕЧАЙ НА РУССКОМ ЯЗЫКЕ!" }] }
                 };
 
                 const searchResponse = await callApiWithRetry(API_URL_GENERATE, searchPayload);
@@ -222,6 +223,7 @@
                     Из следующего отчета извлеки всю информацию о каждом человеке и представь её в формате JSON-массива.
                     Отчет: ${fullTextReport}
                     JSON-массив должен содержать объекты с полями: "name", "job_title", "organization", "previous_roles", "connections", "sources" (массив {type, url}), "documents" (массив {title, url}), "summary", "additional_info".
+                    ВСЕ ТЕКСТОВЫЕ ПОЛЯ ДОЛЖНЫ БЫТЬ НА РУССКОМ ЯЗЫКЕ!
                     Ответь ТОЛЬКО JSON-массивом. Не включай источники или документы с 'null' URL.
                 `;
 
@@ -246,7 +248,8 @@
                                 }
                             }
                         }
-                    }
+                    },
+                    systemInstruction: { parts: [{ text: "Ты всегда отвечаешь на русском языке. Все текстовые поля в JSON должны быть переведены на русский язык." }] }
                 };
 
                 const jsonResponse = await callApiWithRetry(API_URL_GENERATE, jsonPayload);
