@@ -25,62 +25,22 @@
         .fade-in { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Стили для PDF экспорта в темной теме */
-        .pdf-container { 
-            background-color: #0d121c !important; 
-            color: #e5e7eb !important;
-            padding: 20px;
-            font-family: 'Inter', sans-serif;
+        /* PDF стили */
+        .pdf-page { 
+            page-break-after: always; 
+            padding: 20px; 
+            font-family: Arial, sans-serif;
+            background: white;
+            color: black;
         }
-        .pdf-card { 
-            background-color: rgba(23, 23, 31, 0.95) !important; 
-            border: 1px solid #374151 !important;
-            margin-bottom: 20px;
-            padding: 20px;
-            border-radius: 12px;
+        .pdf-page:last-child { page-break-after: auto; }
+        .pdf-section { 
+            margin-bottom: 15px;
             page-break-inside: avoid;
         }
-        .pdf-title {
-            color: #f3f4f6 !important;
-            font-size: 24px !important;
-            font-weight: bold !important;
-            margin-bottom: 10px !important;
-            text-align: center;
-        }
-        .pdf-subtitle {
-            color: #e5e7eb !important;
-            font-size: 18px !important;
-            font-weight: 600 !important;
-            margin-top: 15px !important;
-            margin-bottom: 10px !important;
-        }
-        .pdf-text {
-            color: #d1d5db !important;
-            line-height: 1.5 !important;
-        }
-        .pdf-source, .pdf-document {
-            background-color: #4b5563 !important;
-            color: #93c5fd !important;
-            border: 1px solid #6b7280 !important;
-            padding: 8px 12px;
-            border-radius: 12px;
-            margin-bottom: 8px;
-        }
-        .pdf-badge {
-            background-color: #4f46e5 !important;
-            color: white !important;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 12px;
-            margin-right: 8px;
-        }
-        
-        /* Правильные переносы страниц */
-        .page-break {
-            page-break-before: always;
-        }
-        .avoid-break {
-            page-break-inside: avoid;
+        .pdf-break-avoid { 
+            page-break-inside: avoid; 
+            break-inside: avoid;
         }
     </style>
 </head>
@@ -452,120 +412,141 @@
             if (event.key === 'Enter') searchButton.click();
         });
 
-        // НОРМАЛЬНАЯ PDF ГЕНЕРАЦИЯ
+        // ИСПРАВЛЕННАЯ PDF ГЕНЕРАЦИЯ - БЕЗ ОБРЕЗАНИЯ ТЕКСТА
         savePdfButton.addEventListener('click', function() {
-            const query = queryInput.value || 'report';
-            
             if (!currentJsonResult) {
                 alert("Нет данных для экспорта. Сначала выполните поиск.");
                 return;
             }
-            
-            // Создаем контейнер для PDF
-            const pdfContainer = document.createElement('div');
-            pdfContainer.className = 'pdf-container';
-            
-            // Заголовок
-            const title = document.createElement('h1');
-            title.className = 'pdf-title';
-            title.textContent = `OSINT Отчет: ${query}`;
-            
-            const date = document.createElement('p');
-            date.className = 'pdf-text';
-            date.style.textAlign = 'center';
-            date.style.marginBottom = '30px';
-            date.textContent = `Сгенерировано: ${new Date().toLocaleString('ru-RU')}`;
-            
-            pdfContainer.appendChild(title);
-            pdfContainer.appendChild(date);
 
-            // Добавляем каждую персону
+            const query = queryInput.value || 'report';
+            
+            // Создаем улучшенный HTML для PDF с правильной пагинацией
+            let pdfHTML = `
+                <div style="font-family: Arial, sans-serif; background: white; color: black;">
+                    <div class="pdf-page">
+                        <h1 style="text-align: center; font-size: 24px; margin-bottom: 10px; color: #1f2937;">OSINT Отчет: ${query}</h1>
+                        <p style="text-align: center; color: #6b7280; margin-bottom: 30px; border-bottom: 1px solid #e5e7eb; padding-bottom: 20px;">Сгенерировано: ${new Date().toLocaleString('ru-RU')}</p>
+            `;
+
+            // Добавляем каждую персону с правильным разбиением на страницы
             currentJsonResult.forEach((person, index) => {
-                const card = document.createElement('div');
-                card.className = 'pdf-card avoid-break';
-                
-                // Добавляем разрыв страницы для каждой третьей персоны (кроме первой)
-                if (index > 0 && index % 3 === 0) {
-                    card.classList.add('page-break');
-                }
-
-                let previousRolesHtml = '';
-                if (person.previous_roles && person.previous_roles.length > 0) {
-                    previousRolesHtml = `
-                        <h3 class="pdf-subtitle">Предыдущие должности:</h3>
-                        <ul class="pdf-text" style="padding-left: 20px;">
-                            ${person.previous_roles.map(role => `<li>${role}</li>`).join('')}
-                        </ul>`;
-                }
-
-                let connectionsHtml = '';
-                if (person.connections && person.connections.length > 0) {
-                    connectionsHtml = `
-                        <h3 class="pdf-subtitle">Связи:</h3>
-                        <ul class="pdf-text" style="padding-left: 20px;">
-                            ${person.connections.map(connection => `<li>${connection}</li>`).join('')}
-                        </ul>`;
-                }
-
-                let sourcesHtml = '';
-                if (person.sources && person.sources.length > 0) {
-                    sourcesHtml = `
-                        <h3 class="pdf-subtitle">Источники:</h3>
-                        <div>
-                            ${person.sources.map((source, index) => `
-                                <div class="pdf-source">
-                                    ${source.type}: ${source.url}
-                                </div>`).join('')}
-                        </div>`;
-                }
-
-                let documentsHtml = '';
-                if (person.documents && person.documents.length > 0) {
-                    documentsHtml = `
-                        <h3 class="pdf-subtitle">Документы:</h3>
-                        <div>
-                            ${person.documents.map((doc, index) => {
-                                const fileExtension = doc.url.split('.').pop().toLowerCase();
-                                return `
-                                <div class="pdf-document">
-                                    <span class="pdf-badge">${fileExtension}</span>
-                                    ${doc.title || doc.url}
-                                </div>`;
-                            }).join('')}
-                        </div>`;
-                }
-
-                card.innerHTML = `
-                    <h2 class="pdf-subtitle" style="font-size: 1.5rem !important;">${person.name || 'Информация'}</h2>
-                    ${person.job_title ? `<p class="pdf-text" style="color: #818cf8 !important; font-weight: 500;">${person.job_title}</p>` : ''}
-                    ${person.organization ? `<p class="pdf-text">${person.organization}</p>` : ''}
-                    <div style="margin-top: 16px; padding: 16px; background-color: rgba(75, 85, 99, 0.5); border-radius: 8px;">
-                        <p class="pdf-text">${person.summary || 'Описание отсутствует.'}</p>
-                    </div>
-                    ${previousRolesHtml}
-                    ${connectionsHtml}
-                    ${sourcesHtml}
-                    ${documentsHtml}
-                    ${person.additional_info ? `
-                        <div style="margin-top: 16px; padding: 12px; background-color: rgba(59, 130, 246, 0.3); border-radius: 8px;">
-                            <p class="pdf-text" style="color: #93c5fd !important; font-size: 0.875rem;">${person.additional_info}</p>
-                        </div>` : ''}
+                const personHTML = `
+                    <div class="pdf-break-avoid" style="margin-bottom: 25px; padding-bottom: 20px; ${index < currentJsonResult.length - 1 ? 'border-bottom: 1px solid #e5e7eb;' : ''}">
+                        <h2 style="font-size: 20px; margin-bottom: 10px; color: #111827; font-weight: bold;">${person.name || 'Информация'}</h2>
+                        ${person.job_title ? `<p style="color: #4f46e5; font-weight: bold; margin-bottom: 5px; font-size: 16px;">${person.job_title}</p>` : ''}
+                        ${person.organization ? `<p style="color: #6b7280; margin-bottom: 15px; font-size: 14px;">${person.organization}</p>` : ''}
+                        
+                        <div class="pdf-section" style="background: #f9fafb; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                            <h3 style="font-size: 16px; margin-bottom: 8px; color: #374151; font-weight: bold;">Краткое описание:</h3>
+                            <p style="color: #4b5563; line-height: 1.5; font-size: 14px;">${person.summary || 'Описание отсутствует.'}</p>
+                        </div>
                 `;
+
+                // Добавляем предыдущие должности если есть
+                let previousRolesHTML = '';
+                if (person.previous_roles && person.previous_roles.length > 0) {
+                    previousRolesHTML = `
+                        <div class="pdf-section pdf-break-avoid">
+                            <h3 style="font-size: 16px; margin: 15px 0 8px 0; color: #374151; font-weight: bold;">Предыдущие должности:</h3>
+                            <ul style="padding-left: 20px; color: #4b5563; font-size: 14px;">
+                                ${person.previous_roles.map(role => `<li style="margin-bottom: 4px;">${role}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                // Добавляем связи если есть
+                let connectionsHTML = '';
+                if (person.connections && person.connections.length > 0) {
+                    connectionsHTML = `
+                        <div class="pdf-section pdf-break-avoid">
+                            <h3 style="font-size: 16px; margin: 15px 0 8px 0; color: #374151; font-weight: bold;">Связи:</h3>
+                            <ul style="padding-left: 20px; color: #4b5563; font-size: 14px;">
+                                ${person.connections.map(connection => `<li style="margin-bottom: 4px;">${connection}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                // Добавляем источники если есть
+                let sourcesHTML = '';
+                if (person.sources && person.sources.length > 0) {
+                    sourcesHTML = `
+                        <div class="pdf-section pdf-break-avoid">
+                            <h3 style="font-size: 16px; margin: 15px 0 8px 0; color: #374151; font-weight: bold;">Источники:</h3>
+                            <div>
+                                ${person.sources.map(source => `
+                                    <div style="background: #e5e7eb; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; color: #1e40af; font-size: 12px; word-break: break-all;">
+                                        <strong>${source.type}:</strong> ${source.url}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Добавляем документы если есть
+                let documentsHTML = '';
+                if (person.documents && person.documents.length > 0) {
+                    documentsHTML = `
+                        <div class="pdf-section pdf-break-avoid">
+                            <h3 style="font-size: 16px; margin: 15px 0 8px 0; color: #374151; font-weight: bold;">Документы:</h3>
+                            <div>
+                                ${person.documents.map(doc => {
+                                    const fileExtension = doc.url.split('.').pop().toLowerCase();
+                                    return `
+                                    <div style="background: #e5e7eb; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; font-size: 12px;">
+                                        <span style="background: #4f46e5; color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; margin-right: 8px;">${fileExtension.toUpperCase()}</span>
+                                        <div>
+                                            <div style="color: #1f2937; font-weight: bold;">${doc.title || 'Без названия'}</div>
+                                            <div style="color: #6b7280; word-break: break-all;">${doc.url}</div>
+                                        </div>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Добавляем дополнительную информацию если есть
+                let additionalInfoHTML = '';
+                if (person.additional_info) {
+                    additionalInfoHTML = `
+                        <div class="pdf-section pdf-break-avoid">
+                            <div style="background: #dbeafe; padding: 12px; border-radius: 6px; margin-top: 15px;">
+                                <h3 style="font-size: 16px; margin-bottom: 8px; color: #1e40af; font-weight: bold;">Дополнительная информация:</h3>
+                                <p style="color: #1e40af; font-size: 14px; line-height: 1.5;">${person.additional_info}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Собираем полный HTML для персоны
+                const fullPersonHTML = personHTML + previousRolesHTML + connectionsHTML + sourcesHTML + documentsHTML + additionalInfoHTML + `</div>`;
                 
-                pdfContainer.appendChild(card);
+                // Добавляем в общий HTML
+                pdfHTML += fullPersonHTML;
             });
 
-            // Настройки PDF
+            pdfHTML += `</div></div>`;
+
+            // Создаем временный элемент
+            const tempElement = document.createElement('div');
+            tempElement.innerHTML = pdfHTML;
+            document.body.appendChild(tempElement);
+
+            // Улучшенные настройки PDF
             const options = {
                 margin: [10, 10, 10, 10],
                 filename: `OSINT_Report_${query.replace(/ /g, '_')}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { 
                     scale: 2,
-                    backgroundColor: '#0d121c',
                     useCORS: true,
                     logging: false,
-                    windowWidth: 1200
+                    scrollY: 0,
+                    windowHeight: document.documentElement.offsetHeight
                 },
                 jsPDF: { 
                     unit: 'mm', 
@@ -573,11 +554,20 @@
                     orientation: 'portrait',
                     compress: true
                 },
-                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+                pagebreak: { 
+                    mode: ['avoid-all', 'css', 'legacy'] 
+                }
             };
 
             // Генерируем PDF
-            html2pdf().set(options).from(pdfContainer).save();
+            html2pdf().set(options).from(tempElement).save().then(() => {
+                // Удаляем временный элемент после генерации
+                document.body.removeChild(tempElement);
+            }).catch(error => {
+                console.error('PDF generation error:', error);
+                document.body.removeChild(tempElement);
+                alert('Ошибка при создании PDF. Попробуйте еще раз.');
+            });
         });
     });
 </script>
