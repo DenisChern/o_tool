@@ -1,578 +1,740 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OSINT-поиск (FIXED PDF)</title>
-    
+    <title>Osint_v2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #0d121c; color: #e5e7eb; position: relative; overflow: hidden; }
-        .matrix-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
-        .matrix-column { position: absolute; width: 15px; font-family: 'monospace'; font-size: 15px; color: rgba(0, 204, 0, 0.1); text-shadow: 0 0 2px rgba(0, 255, 0, 0.1); white-space: nowrap; overflow: hidden; animation: matrix-fall 5s linear infinite; }
-        @keyframes matrix-fall { from { transform: translateY(-100%); } to { transform: translateY(100vh); } }
-        .container-bg { background-color: rgba(23, 23, 31, 0.8); backdrop-filter: blur(10px); }
-        .source-link, .document-link { display: flex; align-items: center; padding: 8px 12px; border-radius: 12px; background-color: #4b5563; color: #93c5fd; transition: background-color 0.2s, transform: 0.2s; margin-bottom: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-        .source-link:hover, .document-link:hover { background-color: #6b7280; transform: translateY(-2px); }
-        .document-badge { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 6px; background-color: #4f46e5; color: white; font-size: 12px; margin-right: 8px; }
-        .status-indicator { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; display: inline-block; }
-        .status-active { background-color: #10B981; }
-        .status-inactive { background-color: #EF4444; }
-        .status-checking { background-color: #F59E0B; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .fade-in { animation: fadeIn 0.5s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* PDF стили */
-        .pdf-page { 
-            page-break-after: always; 
-            padding: 20px; 
-            font-family: Arial, sans-serif;
-            background: white;
-            color: black;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body { font-family: 'Inter', sans-serif; background-color: #000000; color: #e5e7eb; overflow-x: hidden; }
+
+        /* Фон "Матрица" */
+        .matrix-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.25; pointer-events: none; }
+        .matrix-col { position: absolute; font-family: 'JetBrains Mono', monospace; color: #0f0; text-shadow: 0 0 5px #0f0; font-size: 14px; animation: fall linear infinite; }
+        @keyframes fall { to { transform: translateY(100vh); } }
+
+        /* Кибер-панель (Glass UI) */
+        .cyber-panel { 
+            background: rgba(10, 10, 12, 0.85); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid #1f2937; 
+            box-shadow: 0 0 40px rgba(0, 255, 0, 0.05);
+            position: relative; z-index: 10;
         }
-        .pdf-page:last-child { page-break-after: auto; }
-        .pdf-section { 
-            margin-bottom: 15px;
+
+        /* Ссылки */
+        .cyber-link {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px; background: #0f1115; border: 1px solid #333;
+            color: #4ade80; text-decoration: none; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+            transition: all 0.2s; border-left: 2px solid #333;
+        }
+        .cyber-link:hover {
+            border-left-color: #4ade80; background: #161b22; transform: translateX(2px);
+        }
+
+        /* Поле ввода */
+        .cyber-input {
+            background: #050505; border: 1px solid #333; color: #0f0; 
+            font-family: 'JetBrains Mono', monospace; letter-spacing: 1px;
+        }
+        .cyber-input:focus { border-color: #0f0; outline: none; box-shadow: 0 0 15px rgba(0, 255, 0, 0.15); }
+
+        /* Бейджики */
+        .tag-role { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); padding: 2px 6px; font-size: 10px; border-radius: 2px; }
+        .tag-loc { background: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.4); padding: 2px 6px; font-size: 10px; border-radius: 2px; }
+        .tag-alert { background: rgba(220, 38, 38, 0.2); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.4); padding: 2px 6px; font-size: 10px; border-radius: 2px; }
+        .tag-connection { background: rgba(168, 85, 247, 0.2); color: #c4b5fd; border: 1px solid rgba(168, 85, 247, 0.4); padding: 2px 6px; font-size: 10px; border-radius: 2px; }
+        .tag-document { background: rgba(220, 38, 38, 0.3); color: #f87171; border: 1px solid #dc2626; }
+        
+        /* Анимация сканирования */
+        .scan-animation {
+            width: 80%; height: 5px; background: rgba(15, 255, 0, 0.2); margin: 20px auto; position: relative; overflow: hidden;
+        }
+        .scan-line {
+            position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(to right, rgba(15, 255, 0, 0) 0%, rgba(15, 255, 0, 0.8) 50%, rgba(15, 255, 0, 0) 100%);
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan {
+            0% { left: -50%; }
+            100% { left: 100%; }
+        }
+
+        /* Новый стиль для главного отчета */
+        .deep-report-panel {
+            background: #000000;
+            border: 2px solid #10b981; /* Зеленый акцент */
+            border-radius: 8px;
+            padding: 2rem; 
+            margin-bottom: 2.5rem;
+            box-shadow: 0 0 50px rgba(16, 185, 129, 0.1); /* Легкое зеленое свечение */
+        }
+        /* Стиль для PDF-страницы (используется при генерации через html2pdf) */
+        .pdf-page {
+            box-sizing: border-box;
+            width: 210mm; /* A4 */
+            min-height: 297mm;
+            padding: 20mm;
+            background: #ffffff; /* белый фон для корректного отображения в PDF */
+            color: #111827; /* темный текст */
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        /* Предотвращаем разрывы внутри важных блоков */
+        .pdf-page .deep-report-panel,
+        .pdf-page .bg-gray-900\/70,
+        .pdf-page .bg-red-900\/20 {
             page-break-inside: avoid;
         }
-        .pdf-break-avoid { 
-            page-break-inside: avoid; 
-            break-inside: avoid;
+
+        /* Упрощенные цвета для печати */
+        .pdf-page h1, .pdf-page h2, .pdf-page h3 { color: #0f5132; }
+        .pdf-page a { color: #0b5fff; text-decoration: underline; }
+
+        @media print {
+            body { background: #fff; color: #000; }
         }
     </style>
 </head>
-<body class="p-4 flex items-center justify-center min-h-screen">
-<div class="matrix-bg" id="matrixBackground"></div>
-<div class="container-bg p-6 rounded-2xl shadow-xl w-full max-w-2xl z-10 relative overflow-y-auto" style="max-height: 90vh;">
-    
-    <div class="space-y-4">
-        <div class="relative">
-            <input type="text" id="queryInput" placeholder="Введите запрос..."
-                   class="w-full px-5 py-3 pr-16 text-gray-700 bg-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300">
-            <button id="searchButton"
-                    class="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-indigo-700 transition-all duration-300 flex items-center justify-center space-x-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-                <span>Поиск</span>
+<body class="min-h-screen flex flex-col p-4 md:p-8">
+    <div id="matrixContainer" class="matrix-bg"></div>
+
+    <div class="cyber-panel w-full max-w-6xl mx-auto rounded-xl flex flex-col h-[90vh] overflow-hidden">
+        
+        <div class="p-6 border-b border-gray-800 flex justify-between items-end bg-black/40">
+            <div>
+                <h1 class="text-4xl font-black text-green-500 tracking-tighter font-mono">Osint_v2</h1>
+                <div class="flex gap-4 mt-2 text-[10px] font-mono text-gray-400 uppercase">
+                    <span class="text-yellow-400">● Интерфейс Osint_v2</span>
+                </div>
+            </div>
+            <div id="statusIndicator" class="font-mono text-xs text-gray-600 animate-pulse">ОЖИДАНИЕ_ВВОДА...</div>
+        </div>
+
+        <div class="p-6 flex gap-4 bg-black/20">
+            <div class="relative flex-1">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-green-600 font-bold font-mono">>></span>
+                <input type="text" id="queryInput" placeholder="ЦЕЛЬ (ИМЯ, АЛИАС, E-MAIL, АДРЕС)..."
+                       class="cyber-input w-full py-4 pl-12 pr-4 rounded text-sm" disabled>
+            </div>
+            <button id="runScanBtn" class="px-8 bg-green-900/80 hover:bg-green-800 text-green-100 border border-green-700 rounded font-mono font-bold tracking-wider transition-all hover:shadow-[0_0_20px_rgba(0,255,0,0.3)]" disabled>
+                ВЫПОЛНИТЬ
             </button>
         </div>
 
-        <div id="exportButtons" class="flex space-x-2 hidden">
-            <button id="savePdfButton" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl shadow-lg hover:bg-green-700 transition-all duration-300">
-                ⬇️ PDF
-            </button>
+        <div id="terminalOutput" class="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-black">
+                <div class="flex flex-col items-center justify-center h-full text-gray-800 font-mono select-none">
+                <div class="text-6xl mb-4 opacity-10">🚀</div>
+                <p>Osint_v2 готов. Поиск настроен на глубокий OSINT.</p>
+                <p class="text-xs mt-2 text-red-500/50">Используются расширенные дорки для поиска узких/старых данных.</p>
+            </div>
         </div>
 
-        <div id="loadingStatus" class="mt-4 text-center text-gray-400 font-semibold hidden">
-            <div class="animate-spin inline-block w-8 h-8 border-4 border-t-4 border-indigo-200 rounded-full border-t-indigo-600"></div>
-            <p class="mt-2" id="loadingText">Выполняю поиск...</p>
+        <div id="consoleLogs" class="h-32 bg-black border-t border-gray-800 p-3 font-mono text-[10px] text-gray-500 overflow-y-auto">
+            <div>[СИСТЕМА] Osint_v2 инициализирован.</div>
         </div>
-        <div id="errorAlert" class="hidden bg-red-800 bg-opacity-30 border border-red-700 text-red-300 px-4 py-3 rounded-xl relative mt-4" role="alert">
-            <strong class="font-bold">Ошибка!</strong>
-            <span class="block sm:inline" id="errorMessage">Произошла неизвестная ошибка.</span>
+        
+            <div id="actionBar" class="p-4 border-t border-gray-800 bg-black/40 hidden flex justify-end gap-3">
+            <button id="copyReportBtn" class="px-4 py-2 bg-gray-800 text-white text-xs font-mono border border-gray-600 rounded hover:bg-gray-700">СКОПИРОВАТЬ JSON</button>
+                <button id="exportPdfBtn" class="px-4 py-2 bg-blue-900/50 text-blue-200 text-xs font-mono border border-blue-700 rounded hover:bg-blue-800/50">СОХРАНИТЬ PDF ОТЧЕТ</button>
         </div>
-
-        <div id="resultsContainer" class="mt-6 space-y-6"></div>
     </div>
-</div>
 
 <script>
-    let currentJsonResult = null;
+document.addEventListener('DOMContentLoaded', () => {
+    // --- КОНФИГ (ТВОИ ДВА КЛЮЧА) ---
+    const API_KEYS = [
+        "AIzaSyAvjT2_Y4cdZzCPDASmuBN1Va2ht_n51AU", // Основной
+        "AIzaSyBOE5Yj-BGjN4C4IlQ-IKUe9G0BLhf1DK0" // Резервный
+    ];
+    let currentKeyIndex = 0;
+    
+    const MODEL = "gemini-2.5-flash"; 
+    const ENDPOINT_BASE = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=`;
+    
+    let globalData = null; 
+    let isProcessing = false;
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const queryInput = document.getElementById('queryInput');
-        const searchButton = document.getElementById('searchButton');
-        const loadingStatus = document.getElementById('loadingStatus');
-        const loadingText = document.getElementById('loadingText');
-        const resultsContainer = document.getElementById('resultsContainer');
-        const errorAlert = document.getElementById('errorAlert');
-        const errorMessage = document.getElementById('errorMessage');
-        const matrixBackground = document.getElementById('matrixBackground');
-        const exportButtons = document.getElementById('exportButtons');
-        const savePdfButton = document.getElementById('savePdfButton');
+    // --- СХЕМА JSON ---
+    const JSON_SCHEMA_DESCRIPTION = {
+        summary_report: "Общий аналитический отчет по Цели. Должен быть большим и детализированным (минимум 300 слов, 1500 символов) и включать КОНТЕКСТУАЛЬНЫЙ АНАЛИЗ, оценку рисков и скрытых связей.",
+        profiles: [{
+            name: "Имя, Псевдоним или Название Организации",
+            role: "Текущая или ключевая роль/должность",
+            location: "Географическое расположение",
+            organization: "Ключевая организация/Компания",
+            age_estimate: "Расчетный возраст или дата рождения.",
+            summary: "Детализированное резюме профиля.",
+            document_snippet: "3-5 ключевых строк, извлеченных из PDF/DOC/XLS, прямо упоминающих Цель.",
+            document_sources: [{
+                url: "Прямая, рабочая ссылка на файл (PDF, DOC, XLS), подтверждающий document_snippet",
+                title: "Заголовок/Описание документа"
+            }],
+            connections: [{
+                name: "Связанная личность",
+                type: "Тип связи (например, 'Коллега', 'Супруг', 'Соучастник по хобби').",
+                details: "Детали связи",
+                source: "Источник, подтверждающий связь."
+            }],
+            vulnerabilities: "Обнаруженные утечки, email, телефонный номер или другая чувствительная информация.",
+            general_sources: [{
+                url: "URL веб-источника (Прямая, рабочая ссылка)",
+                title: "Заголовок веб-страницы/Статьи"
+            }]
+        }],
+        potential_matches: [{
+            name: "Потенциально связанный профиль",
+            description: "Краткое описание совпадения",
+            source: "Источник совпадения"
+        }]
+    };
 
-        // Матрица фон
-        const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
-        const numColumns = Math.floor(window.innerWidth / 15);
-        for (let i = 0; i < numColumns; i++) {
-            const column = document.createElement('div');
-            column.classList.add('matrix-column');
-            column.style.left = `${i * 15}px`;
-            column.style.animationDelay = `${Math.random() * 5}s`;
-            column.style.animationDuration = `${5 + Math.random() * 10}s`;
-            let text = '';
-            for (let j = 0; j < 50; j++) { 
-                text += characters.charAt(Math.floor(Math.random() * characters.length)) + '<br>'; 
-            }
-            column.innerHTML = text;
-            matrixBackground.appendChild(column);
+    // --- УТИЛИТЫ ---
+    const log = (msg, type='info') => {
+        const consoleDiv = document.getElementById('consoleLogs');
+        const line = document.createElement('div');
+        line.className = type === 'error' ? 'text-red-500' : (type === 'warn' ? 'text-yellow-500' : 'text-gray-400');
+        line.innerText = `[${new Date().toLocaleTimeString('ru-RU')}] ${msg}`;
+        consoleDiv.appendChild(line);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    };
+
+    const cleanJsonString = (text) => {
+        if (!text) return null;
+        const match = text.match(/```json\s*([\s\S]*?)\s*```/i);
+        if (match && match[1]) {
+            log("JSON-блок успешно извлечен из текстового ответа.");
+            return match[1].trim();
         }
+        log("ВНИМАНИЕ: JSON-блок не найден. Возврат всего текста как JSON.", 'warn');
+        return text.trim();
+    };
 
-        // API настройки
-        const API_KEY = "AIzaSyAvjT2_Y4cdZzCPDASmuBN1Va2ht_n51AU";
-        const API_URL_GENERATE = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
-        
-        const urlStatusCache = new Map();
+    /**
+     * ФУНКЦИЯ FETCH С ПЕРЕКЛЮЧЕНИЕМ КЛЮЧЕЙ И БЭКОФФОМ 
+     */
+    const fetchWithKeySwitch = async (target, maxRetries = 5) => {
+        let lastError = null;
+        let originalKeyIndex = currentKeyIndex;
 
-        // Функция API вызова
-        async function callApiWithRetry(url, payload, retries = 0) {
-            const maxRetries = 5;
-            const timeout = 30000;
+        for (let keyAttempt = 0; keyAttempt < API_KEYS.length; keyAttempt++) {
+            currentKeyIndex = (originalKeyIndex + keyAttempt) % API_KEYS.length;
+            const currentKey = API_KEYS[currentKeyIndex];
+            const endpoint = ENDPOINT_BASE + currentKey;
             
-            try {
-                const controller = new AbortController();
-                const id = setTimeout(() => controller.abort(), timeout);
-                
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                    signal: controller.signal
-                });
-                
-                clearTimeout(id);
+            log(`Попытка API с ключом #${currentKeyIndex + 1}/${API_KEYS.length}.`, 'info');
 
-                if (response.status === 429 && retries < maxRetries) {
-                    const delay = (2 ** retries) * 1000 + Math.random() * 2000;
-                    loadingText.textContent = `Лимит API (429). Жду ${Math.ceil(delay / 1000)}с...`;
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    return await callApiWithRetry(url, payload, retries + 1);
+            // Создаем payload с обновленным промптом V14.0
+            const payload = {
+                contents: [{ parts: [{ text: createAggressivePrompt(target) }] }],
+                tools: [{ google_search: {} }], 
+                generationConfig: {
+                     temperature: 0.1 
                 }
+            };
+            const options = {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            };
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`API Ошибка: ${response.status}`);
-                }
-                
-                return await response.json();
-            } catch (e) {
-                console.error(e);
-                if (retries < maxRetries) {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    return await callApiWithRetry(url, payload, retries + 1);
-                }
-                throw e;
-            }
-        }
-
-        // Проверка URL
-        async function checkUrlAvailability(url) {
-            if (!url || url === "null") return "invalid";
-            if (urlStatusCache.has(url)) return urlStatusCache.get(url);
-            try {
-                const response = await fetch(url, { method: 'HEAD', mode: 'no-cors', cache: 'no-cache' });
-                urlStatusCache.set(url, 'active');
-                return 'active';
-            } catch (error) {
-                urlStatusCache.set(url, 'unknown');
-                return 'unknown';
-            }
-        }
-
-        // Основная функция поиска
-        async function findPersonInfo(query) {
-            resultsContainer.innerHTML = '';
-            currentJsonResult = null;
-            errorAlert.classList.add('hidden');
-            exportButtons.classList.add('hidden');
-            loadingText.textContent = 'Фаза 1: Поиск информации...';
-            loadingStatus.classList.remove('hidden');
-
-            try {
-                // ФАЗА 1: Поиск
-                const searchDorks = [
-                    `"${query}" (биография OR резюме OR "CV")`,
-                    `"${query}" (должность OR организация OR "место работы")`,
-                    `"${query}" "семья" OR "родители" OR "супруг(а)"`,
-                    `site:wikipedia.org "${query}"`,
-                    `site:linkedin.com "${query}"`,
-                    `filetype:pdf "${query}"`,
-                ];
-
-                const searchPrompt = `
-                    Найди в интернете всю доступную информацию, относящуюся к запросу "${query}".
-                    Используй следующие поисковые запросы (Google Dorks):
-                    ${searchDorks.join('\n- ')}
-                    Собери подробный, развернутый отчет со всеми найденными фактами и **обязательно** ссылками на первоисточники.
-                    Включи информацию о карьере, связях, биографии и любых публичных записях.
-                    ВЕСЬ ОТЧЕТ ДОЛЖЕН БЫТЬ НА РУССКОМ ЯЗЫКЕ!
-                `;
-
-                const searchPayload = {
-                    contents: [{ parts: [{ text: searchPrompt }] }],
-                    tools: [{ google_search: {} }],
-                    generationConfig: { temperature: 0.1 },
-                    systemInstruction: { parts: [{ text: "Ты - OSINT-эксперт. Твоя задача - найти всю информацию о запросе и представить её в виде подробного отчета с акцентом на официальные источники и документы. ВСЕГДА ОТВЕЧАЙ НА РУССКОМ ЯЗЫКЕ!" }] }
-                };
-
-                const searchResponse = await callApiWithRetry(API_URL_GENERATE, searchPayload);
-                let fullTextReport = '';
-                
-                if (searchResponse?.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    fullTextReport = searchResponse.candidates[0].content.parts[0].text;
-                } else {
-                    throw new Error("Не удалось получить ответ от API поиска.");
-                }
-
-                // ФАЗА 2: Структурирование
-                loadingText.textContent = 'Фаза 2: Структурирование данных...';
-                
-                const jsonPrompt = `
-                    Из следующего отчета извлеки всю информацию о каждом человеке и представь её в формате JSON-массива.
-                    Отчет: ${fullTextReport}
-                    JSON-массив должен содержать объекты с полями: "name", "job_title", "organization", "previous_roles", "connections", "sources" (массив {type, url}), "documents" (массив {title, url}), "summary", "additional_info".
-                    ВСЕ ТЕКСТОВЫЕ ПОЛЯ ДОЛЖНЫ БЫТЬ НА РУССКОМ ЯЗЫКЕ!
-                    Ответь ТОЛЬКО JSON-массивом. Не включай источники или документы с 'null' URL.
-                `;
-
-                const jsonPayload = {
-                    contents: [{ parts: [{ text: jsonPrompt }] }],
-                    generationConfig: {
-                        responseMimeType: "application/json",
-                        responseSchema: {
-                            type: "ARRAY",
-                            items: {
-                                type: "OBJECT",
-                                properties: {
-                                    name: { type: "STRING" },
-                                    job_title: { type: "STRING", nullable: true },
-                                    organization: { type: "STRING", nullable: true },
-                                    previous_roles: { type: "ARRAY", items: { type: "STRING" } },
-                                    connections: { type: "ARRAY", items: { type: "STRING" } },
-                                    sources: { type: "ARRAY", items: { type: "OBJECT", properties: { type: { type: "STRING" }, url: { type: "STRING" } } } },
-                                    documents: { type: "ARRAY", items: { type: "OBJECT", properties: { title: { type: "STRING" }, url: { type: "STRING" } } } },
-                                    summary: { type: "STRING" },
-                                    additional_info: { type: "STRING", nullable: true }
-                                }
-                            }
-                        }
-                    },
-                    systemInstruction: { parts: [{ text: "Ты всегда отвечаешь на русском языке. Все текстовые поля в JSON должны быть переведены на русский язык." }] }
-                };
-
-                const jsonResponse = await callApiWithRetry(API_URL_GENERATE, jsonPayload);
-
-                if (jsonResponse?.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    let jsonString = jsonResponse.candidates[0].content.parts[0].text;
+            for (let retry = 0; retry < maxRetries; retry++) {
+                try {
+                    const response = await fetch(endpoint, options);
                     
-                    // Чистим JSON ответ
-                    jsonString = jsonString.replace(/```json|```/g, '').trim();
-                    
-                    try {
-                        const result = JSON.parse(jsonString);
-                        currentJsonResult = result;
-                        await displayResults(result);
-                        
-                        loadingStatus.classList.add('hidden');
-                        exportButtons.classList.remove('hidden');
-                    } catch (parseError) {
-                        console.error('JSON Parse Error:', parseError);
-                        // Резервный вариант
-                        resultsContainer.innerHTML = `
-                            <div class="container-bg p-6 rounded-2xl">
-                                <h2 class="text-xl font-bold text-gray-100">Результаты поиска для "${query}"</h2>
-                                <div class="mt-4 p-4 bg-gray-800 bg-opacity-50 rounded-lg">
-                                    <pre class="text-gray-300 whitespace-pre-wrap">${fullTextReport}</pre>
-                                </div>
-                            </div>`;
-                        currentJsonResult = [{ name: query, summary: fullTextReport }];
-                        loadingStatus.classList.add('hidden');
-                        exportButtons.classList.remove('hidden');
+                    if (response.status === 429) {
+                        // Ключ исчерпал лимит. Попробуем другой ключ.
+                        log(`КЛЮЧ #${currentKeyIndex + 1} получил 429 (Лимит). Переключение...`, 'warn');
+                        throw new Error("429 Rate Limit");
                     }
-                } else {
-                    throw new Error("Не удалось структурировать данные.");
-                }
-            } catch (err) {
-                console.error("Ошибка поиска:", err);
-                errorMessage.textContent = err.message;
-                errorAlert.classList.remove('hidden');
-                loadingStatus.classList.add('hidden');
-            }
-        }
+                    if (response.status >= 500) {
+                        // Ошибка сервера. Попробуем еще раз с бэкоффом.
+                         const delay = Math.pow(2, retry) * 1000 + (Math.random() * 1000);
+                         log(`Ошибка ${response.status}. Пауза ${Math.round(delay / 1000)}с.`, 'warn');
+                         await new Promise(resolve => setTimeout(resolve, delay));
+                         continue; 
+                    }
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        lastError = new Error(`HTTP Error ${response.status}: ${errorText.substring(0, 200)}...`);
+                        throw lastError;
+                    }
+                    return response.json(); 
 
-        // Отображение результатов
-        async function displayResults(results) {
-            resultsContainer.innerHTML = '';
-            if (!results || results.length === 0) {
-                resultsContainer.innerHTML = `
-                    <div class="bg-yellow-800 bg-opacity-30 p-6 rounded-xl text-center">
-                        <p class="text-yellow-200">Информация не найдена.</p>
-                    </div>`;
-                return;
-            }
-
-            for (const person of results) {
-                const personCard = document.createElement('div');
-                personCard.className = 'container-bg p-6 rounded-2xl shadow-lg fade-in';
-                
-                let previousRolesHtml = '';
-                if (person.previous_roles && person.previous_roles.length > 0) {
-                    previousRolesHtml = `
-                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Предыдущие должности:</h3>
-                        <ul class="list-disc list-inside space-y-1 text-gray-400">
-                            ${person.previous_roles.map(role => `<li>${role}</li>`).join('')}
-                        </ul>`;
-                }
-
-                let connectionsHtml = '';
-                if (person.connections && person.connections.length > 0) {
-                    connectionsHtml = `
-                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Связи:</h3>
-                        <ul class="list-disc list-inside space-y-1 text-gray-400">
-                            ${person.connections.map(connection => `<li>${connection}</li>`).join('')}
-                        </ul>`;
-                }
-
-                let sourcesHtml = '';
-                if (person.sources && person.sources.length > 0) {
-                    sourcesHtml = `
-                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Источники:</h3>
-                        <ul class="space-y-2">
-                            ${person.sources.map((source, index) => `
-                                <li class="flex items-center">
-                                    <span id="status-src-${index}" class="status-indicator status-checking"></span>
-                                    <a href="${source.url}" target="_blank" class="source-link w-full">
-                                        ${source.type}: ${source.url}
-                                    </a>
-                                </li>`).join('')}
-                        </ul>`;
-                }
-
-                let documentsHtml = '';
-                if (person.documents && person.documents.length > 0) {
-                    documentsHtml = `
-                        <h3 class="text-lg font-semibold mt-4 mb-2 text-gray-200">Документы:</h3>
-                        <ul class="space-y-2">
-                            ${person.documents.map((doc, index) => {
-                                const fileExtension = doc.url.split('.').pop().toLowerCase();
-                                return `
-                                <li class="flex items-center">
-                                    <span id="status-doc-${index}" class="status-indicator status-checking"></span>
-                                    <a href="${doc.url}" target="_blank" class="document-link w-full">
-                                        <span class="document-badge">${fileExtension}</span>
-                                        ${doc.title || doc.url}
-                                    </a>
-                                </li>`;
-                            }).join('')}
-                        </ul>`;
-                }
-
-                personCard.innerHTML = `
-                    <h2 class="text-xl font-bold text-gray-100">${person.name || 'Информация'}</h2>
-                    ${person.job_title ? `<p class="text-indigo-400 font-medium mt-2">${person.job_title}</p>` : ''}
-                    ${person.organization ? `<p class="text-gray-400">${person.organization}</p>` : ''}
-                    <div class="mt-4 p-4 bg-gray-800 bg-opacity-50 rounded-lg">
-                        <p class="text-gray-300">${person.summary || 'Описание отсутствует.'}</p>
-                    </div>
-                    ${previousRolesHtml}
-                    ${connectionsHtml}
-                    ${sourcesHtml}
-                    ${documentsHtml}
-                    ${person.additional_info ? `
-                        <div class="mt-4 p-3 bg-blue-900 bg-opacity-30 rounded-lg">
-                            <p class="text-blue-300 text-sm">${person.additional_info}</p>
-                        </div>` : ''}
-                `;
-                resultsContainer.appendChild(personCard);
-
-                if (person.sources) {
-                    person.sources.forEach((source, index) => 
-                        checkAndUpdateUrlStatus(source.url, `status-src-${index}`));
-                }
-                if (person.documents) {
-                    person.documents.forEach((doc, index) => 
-                        checkAndUpdateUrlStatus(doc.url, `status-doc-${index}`));
+                } catch (error) {
+                    lastError = error;
+                    if (error.message.includes("429 Rate Limit")) {
+                        // Выходим из цикла повторных попыток для текущего ключа, чтобы переключиться на следующий
+                        break; 
+                    }
+                    if (retry === maxRetries - 1) {
+                         throw lastError; 
+                    }
+                    const delay = Math.pow(2, retry) * 1000 + (Math.random() * 500);
+                    log(`Сетевой сбой. Попытка ${retry + 2}/${maxRetries}. Пауза ${Math.round(delay / 1000)}с.`, 'warn');
+                    await new Promise(resolve => setTimeout(resolve, delay));
                 }
             }
         }
-        
-        async function checkAndUpdateUrlStatus(url, elementId) {
-            const statusElement = document.getElementById(elementId);
-            if (!statusElement) return;
-            const status = await checkUrlAvailability(url);
-            statusElement.classList.remove('status-checking');
-            if (status === 'active') {
-                statusElement.classList.add('status-active');
-            } else {
-                statusElement.classList.add('status-inactive');
-            }
-        }
+        // Если все ключи и попытки исчерпаны
+        throw lastError;
+    };
 
-        // Слушатели
-        searchButton.addEventListener('click', () => {
-            const query = queryInput.value.trim();
-            if (query) {
-                findPersonInfo(query);
-            } else {
-                errorMessage.textContent = "Введите запрос.";
-                errorAlert.classList.remove('hidden');
-            }
-        });
 
-        queryInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') searchButton.click();
-        });
+    // --- МАТРИЦА ---
+    const matrix = document.getElementById('matrixContainer');
+    const w = window.innerWidth;
+    const cols = Math.floor(w / 20);
+    for(let i=0; i<cols; i++) {
+        const col = document.createElement('div');
+        col.className = 'matrix-col';
+        col.style.left = (i*20)+'px';
+        col.style.animationDuration = (Math.random()*3 + 2)+'s';
+        col.style.animationDelay = Math.random()+'s';
+        col.innerText = Array(30).fill(0).map(()=>String.fromCharCode(0x30A0+Math.random()*96)).join('');
+        matrix.appendChild(col);
+    }
 
-        // ИСПРАВЛЕННАЯ PDF ГЕНЕРАЦИЯ - БЕЗ ОБРЕЗАНИЯ ТЕКСТА
-        savePdfButton.addEventListener('click', function() {
-            if (!currentJsonResult) {
-                alert("Нет данных для экспорта. Сначала выполните поиск.");
-                return;
-            }
-
-            const query = queryInput.value || 'report';
+    const setUIState = (disabled) => {
+        const input = document.getElementById('queryInput');
+        const button = document.getElementById('runScanBtn');
+        isProcessing = disabled;
+        input.disabled = disabled;
+        button.disabled = disabled;
+        button.innerText = disabled ? "СКАНИРОВАНИЕ..." : "ВЫПОЛНИТЬ";
+        button.classList.toggle('animate-pulse', disabled);
+    };
+    
+    // --- ПРОМПТ (АГРЕССИВНЫЙ ДОРКИНГ) ---
+    function createAggressivePrompt(target) {
+        return `
+            РОЛЬ: СВЕРХ-АНАЛИТИК ГЛОБАЛЬНОЙ РАЗВЕДКИ (OSINT). Твоя задача — предоставить максимально глубокий и структурированный отчет, используя агрессивный доркинг.
+            ПРИОРИТЕТ: **АБСОЛЮТНАЯ ВЕРИФИКАЦИЯ И ГЛУБОКИЙ ПОИСК УЗКИХ ДАННЫХ**. Используй инструмент Google Search, чтобы найти **ВСЮ** возможную информацию о Цели.
             
-            // Создаем улучшенный HTML для PDF с правильной пагинацией
-            let pdfHTML = `
-                <div style="font-family: Arial, sans-serif; background: white; color: black;">
-                    <div class="pdf-page">
-                        <h1 style="text-align: center; font-size: 24px; margin-bottom: 10px; color: #1f2937;">OSINT Отчет: ${query}</h1>
-                        <p style="text-align: center; color: #6b7280; margin-bottom: 30px; border-bottom: 1px solid #e5e7eb; padding-bottom: 20px;">Сгенерировано: ${new Date().toLocaleString('ru-RU')}</p>
-            `;
+            ЦЕЛЬ: "${target}".
+            
+            **ОСОБЫЕ ИНСТРУКЦИИ ДЛЯ TOOL USE (Google Search):**
+            1. **АГРЕССИВНЫЙ ДОРКИНГ (ОБЯЗАТЕЛЬНО):** Применяй не только прямое имя, но и комбинации дорков для поиска:
+               - Старых или удаленных данных: 'site:facebook.com "${target}" -intitle:profile', 'inurl:archive.org "${target}"', 'cache:'
+               - Утечек/Контактов: '"${target}" +@gmail.com | @yandex.ru | +79', '"${target}" filetype:log | filetype:xls'
+               - Профилей: '"${target}" site:vk.com | site:instagram.com | site:ok.ru | site:linkedin.com'
+            2. **ГЕНЕРАЛЬНЫЙ АНАЛИТИЧЕСКИЙ ОТЧЕТ (summary_report):** Создай БОЛЬШОЙ, детализированный аналитический текст (минимум 300 слов/1500 символов), который не просто перечисляет факты, но и проводит **КОНТЕКСТУАЛЬНЫЙ АНАЛИЗ**, оценивает риски и выявляет скрытые связи. **Используй ВСЕ результаты Tool Use.**
+            3. **УТЕЧКИ (vulnerabilities):** Проведи прицельный поиск E-mail адресов, телефонных номеров, точных адресов проживания, которые могли быть скомпрометированы. Если найдено — включи это в 'vulnerabilities'.
+            4. **ВАЛИДАЦИЯ ССЫЛОК:** Все URL должны быть **рабочими и прямыми**. Категорически запрещается выдумывать или генерировать несуществующие ссылки.
+            5. **СТРУКТУРА:** Верни ТОЛЬКО ОДИН БЛОК JSON, строго соответствующий структуре, обернутый в синтаксис: \`\`\`json [ваш JSON] \`\`\`
+        
+            ТРЕБУЕМАЯ СТРУКТУРА JSON (Пример):
+            ${JSON.stringify(JSON_SCHEMA_DESCRIPTION, null, 2)}
+        `;
+    }
 
-            // Добавляем каждую персону с правильным разбиением на страницы
-            currentJsonResult.forEach((person, index) => {
-                const personHTML = `
-                    <div class="pdf-break-avoid" style="margin-bottom: 25px; padding-bottom: 20px; ${index < currentJsonResult.length - 1 ? 'border-bottom: 1px solid #e5e7eb;' : ''}">
-                        <h2 style="font-size: 20px; margin-bottom: 10px; color: #111827; font-weight: bold;">${person.name || 'Информация'}</h2>
-                        ${person.job_title ? `<p style="color: #4f46e5; font-weight: bold; margin-bottom: 5px; font-size: 16px;">${person.job_title}</p>` : ''}
-                        ${person.organization ? `<p style="color: #6b7280; margin-bottom: 15px; font-size: 14px;">${person.organization}</p>` : ''}
-                        
-                        <div class="pdf-section" style="background: #f9fafb; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
-                            <h3 style="font-size: 16px; margin-bottom: 8px; color: #374151; font-weight: bold;">Краткое описание:</h3>
-                            <p style="color: #4b5563; line-height: 1.5; font-size: 14px;">${person.summary || 'Описание отсутствует.'}</p>
+    // --- ОСНОВНАЯ ЛОГИКА (V14.0) ---
+    async function runOsint(target) {
+        if (isProcessing) return;
+        setUIState(true);
+
+        const output = document.getElementById('terminalOutput');
+        const actionBar = document.getElementById('actionBar');
+        const status = document.getElementById('statusIndicator');
+
+        output.innerHTML = `
+            <div id="loadingBlock" class="flex flex-col items-center justify-center py-12 text-green-500 font-mono">
+                <div class="text-4xl mb-4 animate-spin">🚀</div>
+                <p class="mb-4">АНАЛИЗ ЦЕЛИ: ${target.toUpperCase()}</p>
+                <div class="scan-animation"><div class="scan-line"></div></div>
+                <p class="text-xs text-yellow-500 mt-4">Запуск глубокого поиска...</p>
+            </div>
+        `;
+        actionBar.classList.add('hidden');
+        status.innerText = "АГРЕССИВНЫЙ_ДОРКИНГ_АКТИВЕН...";
+        status.className = "font-mono text-xs text-red-500 animate-pulse";
+
+        try {
+            if (API_KEYS.length === 0) { 
+                 throw new Error("ОТСУТСТВУЮТ API КЛЮЧИ. Вставьте их в секцию КОНФИГ.");
+            }
+            log(`Цель захвачена: ${target}`);
+            log(`Запуск режима Tool Use (Google Search) с ${API_KEYS.length} ключами...`);
+            
+            // Запуск с переключением ключей и бэкоффом
+            const response = await fetchWithKeySwitch(target);
+
+            if (!response.candidates?.[0]?.content?.parts?.[0]?.text) {
+                throw new Error("Не удалось получить текстовый ответ. Сырой ответ API пуст.");
+            }
+
+            let jsonStr = cleanJsonString(response.candidates[0].content.parts[0].text);
+
+            try {
+                globalData = JSON.parse(jsonStr);
+            } catch (parseError) {
+                log(`Ошибка парсинга JSON: ${parseError.message}`, 'error');
+                log("Сырые данные для парсинга:", 'error');
+                log(jsonStr.substring(0, 500) + '...', 'error');
+                throw new Error(`Ошибка парсинга JSON. Вероятно, модель нарушила структуру. ${parseError.message}`);
+            }
+
+            globalData.profiles = globalData.profiles || [];
+
+            render(globalData);
+            status.innerText = "АНАЛИЗ_ЗАВЕРШЕН";
+            status.className = "font-mono text-xs text-green-500";
+
+        } catch (e) {
+            log(`КРИТИЧЕСКИЙ СБОЙ: ${e.message}`, 'error');
+            output.innerHTML = `<div class="text-red-500 font-mono border border-red-900 p-4 bg-red-900/10">
+                                КРИТИЧЕСКИЙ СБОЙ: ${e.message}.
+                                 ПРОВЕРЬТЕ КЛЮЧИ ИЛИ ПОВТОРИТЕ ЗАПРОС.
+                                </div>`;
+            status.innerText = "СИСТЕМНАЯ_ОШИБКА";
+            status.className = "font-mono text-xs text-red-500 animate-pulse";
+        } finally {
+            setUIState(false);
+            if(globalData && globalData.profiles.length > 0) actionBar.classList.remove('hidden');
+        }
+    }
+
+    // --- РЕНДЕР HTML (V14.0) ---
+    function render(data) {
+        const out = document.getElementById('terminalOutput');
+        let html = '';
+
+        // ГЛАВНЫЙ АНАЛИТИЧЕСКИЙ ОТЧЕТ (Улучшенный стиль)
+        if (data.summary_report) { 
+             html += `<div class="deep-report-panel">
+                        <h2 class="text-3xl font-black text-green-400 tracking-wider font-mono mb-4 border-b border-green-700 pb-2">АНАЛИТИЧЕСКИЙ ОТЧЕТ: МАКСИМАЛЬНАЯ ГЛУБИНА</h2>
+                        <p class="text-gray-200 font-mono text-base leading-relaxed whitespace-pre-wrap">${data.summary_report}</p>
+                      </div>`;
+        }
+
+        // 1. ОСНОВНЫЕ ПРОФИЛИ
+        if (data.profiles && data.profiles.length > 0) {
+            data.profiles.forEach((p, i) => {
+                html += `
+                <div class="bg-gray-900/70 border border-gray-600 rounded-lg p-6 mb-8 relative overflow-hidden shadow-lg">
+                    <div class="absolute top-0 right-0 bg-green-900/30 text-green-400 text-xs px-2 py-1 font-mono tracking-widest">ГЛАВНЫЙ_ПРОФИЛЬ_${i+1}</div>
+                                        
+                    <h2 class="text-3xl font-extrabold text-white mb-3 flex flex-wrap items-center gap-4">
+                        ${p.name || 'Имя Не Обнаружено'}
+                        ${p.age_estimate ? `<span class="tag-alert text-sm">ВОЗРАСТ: ${p.age_estimate}</span>` : ''}
+                    </h2>
+                                        
+                    <div class="flex flex-wrap gap-2 mb-6 font-mono uppercase">
+                        ${p.role ? `<span class="tag-role">${p.role}</span>` : ''}
+                        ${p.organization ? `<span class="tag-role">${p.organization}</span>` : ''}
+                        ${p.location ? `<span class="tag-loc">${p.location}</span>` : ''}
+                    </div>
+
+                    <div class="text-gray-300 font-mono text-sm mb-6 whitespace-pre-wrap border-l-4 border-green-700 pl-4 bg-gray-900/30 p-3 rounded">
+                        <h3 class="text-green-300 text-lg mb-2 font-bold">Сводное Досье:</h3>
+                        ${p.summary || 'Сводная информация отсутствует.'}
+                    </div>
+
+                    ${p.document_snippet ? `
+                        <div class="mt-4 p-4 bg-red-900/20 border-2 border-red-600 rounded-lg shadow-xl mb-6">
+                            <h3 class="text-sm font-bold text-red-400 font-mono mb-2 flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                ДОКУМЕНТАЛЬНОЕ УПОМИНАНИЕ (ИЗВЛЕЧЕННЫЙ СНИППЕТ)
+                            </h3>
+                            <div class="text-gray-100 font-mono text-xs whitespace-pre-wrap italic bg-black/70 p-3 rounded border border-red-900/50">${p.document_snippet}</div>
+                                                        
+                            ${renderDocumentSources(p.document_sources)}
                         </div>
-                `;
+                    ` : ''}
 
-                // Добавляем предыдущие должности если есть
-                let previousRolesHTML = '';
-                if (person.previous_roles && person.previous_roles.length > 0) {
-                    previousRolesHTML = `
-                        <div class="pdf-section pdf-break-avoid">
-                            <h3 style="font-size: 16px; margin: 15px 0 8px 0; color: #374151; font-weight: bold;">Предыдущие должности:</h3>
-                            <ul style="padding-left: 20px; color: #4b5563; font-size: 14px;">
-                                ${person.previous_roles.map(role => `<li style="margin-bottom: 4px;">${role}</li>`).join('')}
-                            </ul>
-                        </div>
-                    `;
-                }
-
-                // Добавляем связи если есть
-                let connectionsHTML = '';
-                if (person.connections && person.connections.length > 0) {
-                    connectionsHTML = `
-                        <div class="pdf-section pdf-break-avoid">
-                            <h3 style="font-size: 16px; margin: 15px 0 8px 0; color: #374151; font-weight: bold;">Связи:</h3>
-                            <ul style="padding-left: 20px; color: #4b5563; font-size: 14px;">
-                                ${person.connections.map(connection => `<li style="margin-bottom: 4px;">${connection}</li>`).join('')}
-                            </ul>
-                        </div>
-                    `;
-                }
-
-                // Добавляем источники если есть
-                let sourcesHTML = '';
-                if (person.sources && person.sources.length > 0) {
-                    sourcesHTML = `
-                        <div class="pdf-section pdf-break-avoid">
-                            <h3 style="font-size: 16px; margin: 15px 0 8px 0; color: #374151; font-weight: bold;">Источники:</h3>
-                            <div>
-                                ${person.sources.map(source => `
-                                    <div style="background: #e5e7eb; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; color: #1e40af; font-size: 12px; word-break: break-all;">
-                                        <strong>${source.type}:</strong> ${source.url}
+                    <div class="mt-8">
+                        <h3 class="text-sm font-bold text-gray-400 font-mono mb-2 border-b border-gray-800 pb-1">КЛЮЧЕВЫЕ СВЯЗИ / АССОЦИАТЫ (С АТРИБУЦИЕЙ):</h3>
+                        ${p.connections && p.connections.length > 0 ? `
+                            <div class="space-y-2">
+                                ${p.connections.map(c => `
+                                    <div class="bg-black/50 p-3 rounded border border-gray-800 flex flex-wrap items-center gap-3">
+                                        <span class="tag-connection">${c.type || 'Связь'}</span>
+                                        <div class="text-white font-bold text-sm">${c.name || 'Неизвестная Личность'}</div>
+                                        <div class="text-gray-500 text-xs font-mono ml-auto truncate">
+                                            ${c.details || ''}
+                                             <span class="text-green-500/80 ml-2">(${c.source || 'Источник: Н/Д'})</span>
+                                        </div>
                                     </div>
                                 `).join('')}
                             </div>
-                        </div>
-                    `;
-                }
+                        ` : `<div class="text-gray-600 text-xs font-mono italic p-3 bg-gray-900/30 rounded">Прямые связи не обнаружены.</div>`}
+                    </div>
 
-                // Добавляем документы если есть
-                let documentsHTML = '';
-                if (person.documents && person.documents.length > 0) {
-                    documentsHTML = `
-                        <div class="pdf-section pdf-break-avoid">
-                            <h3 style="font-size: 16px; margin: 15px 0 8px 0; color: #374151; font-weight: bold;">Документы:</h3>
-                            <div>
-                                ${person.documents.map(doc => {
-                                    const fileExtension = doc.url.split('.').pop().toLowerCase();
-                                    return `
-                                    <div style="background: #e5e7eb; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; font-size: 12px;">
-                                        <span style="background: #4f46e5; color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; margin-right: 8px;">${fileExtension.toUpperCase()}</span>
-                                        <div>
-                                            <div style="color: #1f2937; font-weight: bold;">${doc.title || 'Без названия'}</div>
-                                            <div style="color: #6b7280; word-break: break-all;">${doc.url}</div>
-                                        </div>
-                                    </div>`;
-                                }).join('')}
-                            </div>
-                        </div>
-                    `;
-                }
+                    <div class="mt-8 p-4 bg-red-900/10 border border-red-800/50 rounded">
+                        <h3 class="text-sm font-bold text-red-400 font-mono mb-2">ЦИФРОВОЙ СЛЕД / УЯЗВИМОСТИ (E-mail, Тел., Сливы):</h3>
+                        <div class="text-gray-300 font-mono text-xs whitespace-pre-wrap">${p.vulnerabilities || 'Эксплуатируемые утечки или контакты не обнаружены.'}</div>
+                    </div>
 
-                // Добавляем дополнительную информацию если есть
-                let additionalInfoHTML = '';
-                if (person.additional_info) {
-                    additionalInfoHTML = `
-                        <div class="pdf-section pdf-break-avoid">
-                            <div style="background: #dbeafe; padding: 12px; border-radius: 6px; margin-top: 15px;">
-                                <h3 style="font-size: 16px; margin-bottom: 8px; color: #1e40af; font-weight: bold;">Дополнительная информация:</h3>
-                                <p style="color: #1e40af; font-size: 14px; line-height: 1.5;">${person.additional_info}</p>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                // Собираем полный HTML для персоны
-                const fullPersonHTML = personHTML + previousRolesHTML + connectionsHTML + sourcesHTML + documentsHTML + additionalInfoHTML + `</div>`;
-                
-                // Добавляем в общий HTML
-                pdfHTML += fullPersonHTML;
+                    ${renderGeneralSources(p.general_sources)}
+                </div>`;
             });
+        } else {
+            html += `<div class="text-center py-12 text-gray-500 font-mono text-lg">
+                        <div class="text-8xl mb-4 opacity-50">❓</div>
+                        <p>ОСНОВНЫЕ ПРОФИЛИ НЕ ОБНАРУЖЕНЫ. ПРОВЕРЬТЕ СЕКЦИЮ "ТЕНЕВЫЕ ПРОФИЛИ".</p>
+                    </div>`;
+        }
 
-            pdfHTML += `</div></div>`;
+        // 2. ТЕНЕВЫЕ ПРОФИЛИ (ПОТЕНЦИАЛЬНЫЕ СОВПАДЕНИЯ)
+        if (data.potential_matches && data.potential_matches.length > 0) {
+            html += `<div class="border-t border-gray-800 pt-6 mt-8">
+                <h3 class="text-gray-500 font-mono text-xs tracking-widest mb-4">/// ТЕНЕВЫЕ ПРОФИЛИ (ПОТЕНЦИАЛЬНО СВЯЗАННЫЕ ЛИЧНОСТИ) ///</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
 
-            // Создаем временный элемент
-            const tempElement = document.createElement('div');
-            tempElement.innerHTML = pdfHTML;
-            document.body.appendChild(tempElement);
+            // Helper: построить HTML для источника, заменяя внутренние метки "вертекс" на нормальную ссылку, если возможно
+            const buildSourceHtml = (pm) => {
+                const raw = pm.source || '';
 
-            // Улучшенные настройки PDF
-            const options = {
-                margin: [10, 10, 10, 10],
-                filename: `OSINT_Report_${query.replace(/ /g, '_')}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { 
-                    scale: 2,
-                    useCORS: true,
-                    logging: false,
-                    scrollY: 0,
-                    windowHeight: document.documentElement.offsetHeight
-                },
-                jsPDF: { 
-                    unit: 'mm', 
-                    format: 'a4', 
-                    orientation: 'portrait',
-                    compress: true
-                },
-                pagebreak: { 
-                    mode: ['avoid-all', 'css', 'legacy'] 
+                // 1) Если в тексте уже есть явный URL — используем его
+                const urlMatch = raw.match(/(https?:\/\/[^\s)]+)/i);
+                if (urlMatch) {
+                    return `<a href="${urlMatch[1]}" target="_blank" class="text-green-500/80 ml-2">${urlMatch[1]}</a>`;
                 }
+
+                // 2) Если есть поле url или source_url в объекте, используем его
+                if (pm.url) return `<a href="${pm.url}" target="_blank" class="text-green-500/80 ml-2">${pm.url}</a>`;
+                if (pm.source_url) return `<a href="${pm.source_url}" target="_blank" class="text-green-500/80 ml-2">${pm.source_url}</a>`;
+
+                // 3) Обработка специальных редиректов Vertex AI (пример: grounding-api-redirect/<token>)
+                try {
+                    const vertexMatch = raw.match(/grounding-api-redirect\/([A-Za-z0-9-_=]+)/i) || raw.match(/vertexaisearch\.cloud\.google\.com\/grounding-api-redirect\/([A-Za-z0-9-_=]+)/i);
+                    if (vertexMatch && vertexMatch[1]) {
+                        let token = vertexMatch[1];
+                        // Нормализуем base64 URL-safe -> стандартный base64
+                        token = token.replace(/-/g, '+').replace(/_/g, '/');
+                        // Добавим padding
+                        while (token.length % 4 !== 0) token += '=';
+                        try {
+                            const decoded = atob(token);
+                            // Попробуем найти в раскодированном тексте реальный URL
+                            const found = decoded.match(/https?:\/\/[^\s"'<>]+/i);
+                            if (found) {
+                                const real = found[0];
+                                return `<a href="${real}" target="_blank" class="text-green-500/80 ml-2">${real}</a>`;
+                            }
+                            // Если декодирование прошло, но явного URL не найдено — всё равно покажем исходный редирект как ссылку
+                            return `<a href="${raw}" target="_blank" class="text-green-500/80 ml-2">${raw}</a>`;
+                        } catch (e) {
+                            // Если atob выбросил — показываем исходный редирект как ссылку
+                            return `<a href="${raw}" target="_blank" class="text-green-500/80 ml-2">${raw}</a>`;
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+
+                // 4) Если источник явно помечен как внутренний (вертекс) — показываем аккуратный текст-фолбэк
+                if (/вертекс|vertex/i.test(raw)) {
+                    return `<span class="text-gray-400 italic ml-2">(внутренний источник — недоступен извне)</span>`;
+                }
+
+                // 5) В противном случае — выводим исходный текст аккуратно или фолбэк
+                return raw ? `<span class="text-green-500/80 ml-2">${raw}</span>` : `<span class="text-gray-500 ml-2">Источник: Н/Д</span>`;
             };
 
-            // Генерируем PDF
-            html2pdf().set(options).from(tempElement).save().then(() => {
-                // Удаляем временный элемент после генерации
-                document.body.removeChild(tempElement);
-            }).catch(error => {
-                console.error('PDF generation error:', error);
-                document.body.removeChild(tempElement);
-                alert('Ошибка при создании PDF. Попробуйте еще раз.');
+            data.potential_matches.forEach(pm => {
+                const sourceHtml = buildSourceHtml(pm);
+                html += `
+                <div class="bg-black border border-gray-800 p-4 rounded opacity-70 hover:opacity-100 transition-opacity">
+                    <div class="text-white font-bold text-sm">${pm.name || 'Неизвестное Имя'}</div>
+                    <div class="text-gray-500 text-xs font-mono mt-1">${pm.description || 'Нет деталей'}
+                         <span class="ml-2">${sourceHtml}</span>
+                    </div>
+                </div>`;
             });
+            html += `</div></div>`;
+        }
+
+        out.innerHTML = html;
+    }
+
+    /**
+     * Рендеринг ПРЯМЫХ ССЫЛОК на ДОКУМЕНТЫ 
+     */
+    function renderDocumentSources(sources) {
+        if (!Array.isArray(sources) || sources.length === 0) {
+            return `<div class="mt-3 text-xs text-red-400/50 font-mono text-center p-2 bg-red-900/10 rounded">Прямые ссылки на файл не найдены или не атрибутированы.</div>`;
+        }
+
+        let html = `<div class="mt-3 grid grid-cols-1 gap-2">`;
+        sources.forEach((s, index) => {
+            html += `
+                <a href="${s.url}" target="_blank" class="tag-document block text-center py-2 text-white font-mono text-xs rounded transition-colors hover:bg-red-800 hover:shadow-[0_0_10px_rgba(220,38,38,0.5)]">
+                    → ССЫЛКА НА ДОКУМЕНТ #${index + 1}: ${s.title || s.url}
+                </a>
+            `;
+        });
+        html += `</div>`;
+        return html;
+    }
+
+    /**
+     * Рендеринг ОБЩИХ ВЕБ-ИСТОЧНИКОВ 
+     */
+    function renderGeneralSources(sources) {
+        if (!Array.isArray(sources) || sources.length === 0) return `<div class="text-gray-600 text-xs font-mono italic mt-6 p-2 bg-gray-900/30 rounded">Общий цифровой след не обнаружен.</div>`;
+
+        let html = `<div class="mt-6">
+                        <h3 class="text-xs font-bold text-gray-500 font-mono mb-2 border-b border-gray-800 pb-1">ПОДТВЕРЖДЕННЫЕ ВНЕШНИЕ ИСТОЧНИКИ (ВЕРИФИКАЦИЯ):</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">`;
+
+        sources.forEach(s => {
+            const urlLower = s.url.toLowerCase();
+            let type = 'ВЕБ';
+            let color = 'text-green-500';
+
+            if (urlLower.includes('.pdf') || urlLower.includes('.doc') || urlLower.includes('.xls')) {
+                type = 'ФАЙЛ';
+                color = 'text-red-500';
+            } else if (urlLower.includes('linkedin')) {
+                type = 'LINKEDIN';
+            } else if (urlLower.includes('github')) {
+                type = 'TECH/CODE';
+                color = 'text-blue-400';
+            }
+
+            html += `
+                <a href="${s.url}" target="_blank" class="cyber-link group">
+                    <div class="font-bold text-[10px] min-w-[50px] ${color}">${type}</div>
+                    <div class="truncate opacity-70 group-hover:opacity-100">${s.title || s.url}</div>
+                </a>
+            `;
+        });
+        html += `</div></div>`;
+        return html;
+    }
+
+    // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
+    document.getElementById('runScanBtn').addEventListener('click', () => {
+        const q = document.getElementById('queryInput').value.trim();
+        if(q) runOsint(q);
+    });
+
+    document.getElementById('queryInput').addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') document.getElementById('runScanBtn').click();
+    });
+
+    document.getElementById('copyReportBtn').addEventListener('click', () => {
+        if(!globalData) {
+            log('Нет данных для копирования.', 'warn');
+            return;
+        }
+        const text = JSON.stringify(globalData, null, 2);
+
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = text;
+        document.body.appendChild(tempTextarea);
+        tempTextarea.select();
+        try {
+            document.execCommand('copy'); 
+            log('JSON Сырые Данные Скопированы в Буфер Обмена'); 
+        } catch (err) {
+            log('Ошибка при копировании: ' + err, 'error');
+        }
+        document.body.removeChild(tempTextarea);
+    });
+
+    document.getElementById('exportPdfBtn').addEventListener('click', () => {
+        if(!globalData) {
+            log('Нет данных для экспорта.', 'warn');
+            return;
+        }
+        const el = document.createElement('div');
+        el.className = 'pdf-page';
+
+        // Собираем упрощённый, чистый HTML для PDF (белый фон, читаемая типографика)
+    const headerTitle = document.getElementById('queryInput').value || '';
+    let html = `<h1 style="font-size: 22px; margin:0 0 8px 0;">Osint_v2 ОТЧЕТ: ${headerTitle}</h1>`;
+
+        if (globalData.summary_report) {
+            html += `<h2 style="font-size: 16px; margin-top: 12px;">АНАЛИТИЧЕСКИЙ ОТЧЕТ</h2>`;
+            html += `<div style="white-space: pre-wrap; margin-bottom: 14px;">${globalData.summary_report}</div>`;
+        }
+
+        if (globalData.profiles && globalData.profiles.length) {
+            globalData.profiles.forEach(p => {
+                html += `<section style="margin-top:12px;">
+                            <h3 style="font-size:14px; margin:6px 0 4px 0;">ПРОФИЛЬ: ${p.name || 'Неизвестно'}</h3>
+                            <div style="font-size:12px; color:#111;">Роль: ${p.role || 'Н/Д'} | Возраст: ${p.age_estimate || 'Н/Д'}</div>
+                            <div style="margin-top:8px; white-space:pre-wrap;">${p.summary || ''}</div>
+                            <div style="margin-top:8px;">
+                                <strong>Ключевые связи:</strong>
+                                <ul>${(p.connections || []).map(c => `<li>${c.name || '—'} (${c.type || '—'}) — ${c.details || ''} ${c.source ? ' (Источник: ' + c.source + ')' : ''}</li>`).join('')}</ul>
+                            </div>
+                            <div style="margin-top:8px;">
+                                <strong>Документальный сниппет:</strong>
+                                <div style="background:#fff4f4; padding:8px; border-left:4px solid #dc2626; font-size:12px;">${p.document_snippet || 'Не обнаружен.'}</div>
+                            </div>
+                            <div style="margin-top:8px; font-size:12px;">
+                                ${(p.document_sources || []).map((s, index) => `<div><strong>ПРЯМАЯ ССЫЛКА #${index+1}:</strong> ${s.title ? `<a href=\"${s.url}\">${s.title}</a>` : `<a href=\"${s.url}\">${s.url}</a>`}</div>`).join('')}
+                            </div>
+                        </section>`;
+            });
+        }
+
+        if (globalData.potential_matches && globalData.potential_matches.length) {
+            html += `<h2 style="font-size:16px; margin-top:14px;">ТЕНЕВЫЕ ПРОФИЛИ</h2>`;
+            html += `<div style="font-size:12px;">${globalData.potential_matches.map(pm => `<div style=\"margin-top:6px;\"><strong>${pm.name}</strong> — ${pm.description || 'Нет деталей'} ${pm.source ? ' (Источник: ' + pm.source + ')' : ''}</div>`).join('')}</div>`;
+        }
+
+        el.innerHTML = html;
+
+        // Ожидаем загрузки шрифтов, изображений и прочих ресурсов перед рендером
+        const waitForResources = async () => {
+            try {
+                if (document.fonts && document.fonts.ready) await document.fonts.ready;
+            } catch (e) { /* ignore */ }
+            // Ждём несколько циклов event loop, чтобы inline-HTML успел примениться
+            await new Promise(r => setTimeout(r, 150));
+        };
+
+        waitForResources().then(() => {
+            const opt = {
+                margin: [10, 10, 10, 10], // mm
+                filename: 'Osint_v2_Deep_Analysis_RU.pdf',
+                image: { type: 'png', quality: 1 },
+                html2canvas: {
+                    scale: Math.min(window.devicePixelRatio || 2, 3),
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    dpi: 300
+                },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            try {
+                html2pdf().set(opt).from(el).save();
+                log('Инициирован экспорт PDF (высокое качество).');
+            } catch (err) {
+                log('Ошибка при генерации PDF: ' + err.message, 'error');
+            }
         });
     });
+
+    // Инициализация при загрузке
+    const initialize = () => {
+        if (API_KEYS.length > 0 && API_KEYS.every(key => key && key.length > 5)) {
+            document.getElementById('queryInput').disabled = false;
+            document.getElementById('runScanBtn').disabled = false;
+            document.getElementById('statusIndicator').innerText = `Osint_v2 ГОТОВ (${API_KEYS.length}_КЛЮЧА)`;
+            document.getElementById('statusIndicator').classList.remove('text-gray-600', 'animate-pulse', 'text-red-500');
+            document.getElementById('statusIndicator').classList.add('text-green-500');
+        } else {
+            log("!!! ВНИМАНИЕ: API_KEYS отсутствуют или невалидны. Ввод отключен.", 'error');
+            document.getElementById('statusIndicator').innerText = "ОТСУТСТВУЕТ_API_KEY";
+            document.getElementById('statusIndicator').classList.add('text-red-500');
+        }
+    };
+    
+    initialize();
+});
 </script>
 </body>
 </html>
